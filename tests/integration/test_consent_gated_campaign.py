@@ -210,3 +210,42 @@ async def test_campaign_completes_after_last_outbox_delivery(pg_factory):
         campaign_model = await session.get(Campaign, campaign.id)
         assert campaign_model is not None
         assert CampaignStatus(campaign_model.status) == CampaignStatus.COMPLETED
+
+
+async def test_campaign_waits_for_each_currently_eligible_recipient(pg_factory):
+    async with pg_factory() as session, session.begin():
+        users = []
+        for telegram_id in (208, 209):
+            user = await UserService(UserRepository(session)).upsert_telegram_user(
+                telegram_id, f"User {telegram_id}", None, None, None
+            )
+            await ConsentService(ConsentRepository(session)).record(
+                user.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM
+            )
+            users.append(user)
+
+        admin = await AdminAuthService(AdminRepository(session)).create_user(
+            "partial-campaign-admin", "password-123"
+        )
+        campaign = await CampaignService(session).create_draft(admin.id, "Partial", "Hello", {})
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        campaign_model.status = CampaignStatus.SCHEDULED
+        assert await CampaignDeliveryWorker(session).deliver(campaign.id, batch_size=1) == 1
+
+    sender = Sender([])
+    assert await CampaignOutboxWorker(pg_factory, sender).process_pending() == 1
+
+    async with pg_factory() as session, session.begin():
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        assert CampaignStatus(campaign_model.status) == CampaignStatus.RUNNING
+        assert await CampaignDeliveryWorker(session).deliver(campaign.id, batch_size=1) == 1
+
+    assert await CampaignOutboxWorker(pg_factory, sender).process_pending() == 1
+    assert set(sender.calls) == {user.telegram_id for user in users}
+
+    async with pg_factory() as session, session.begin():
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        assert CampaignStatus(campaign_model.status) == CampaignStatus.COMPLETED
