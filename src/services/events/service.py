@@ -287,7 +287,7 @@ class EventService:
         await self.repository.direction(candidate.direction_id)
         if status == EventStatus.COMPLETED and candidate.ends_at > utcnow():
             raise ValueError("Cannot complete an event before it ends")
-        if status == EventStatus.PUBLISHED:
+        if status == EventStatus.PUBLISHED and event.status != EventStatus.PUBLISHED:
             await self._publication_requirements(candidate)
         by_id = {t.id: t for t in event.ticket_types}
         ids = [t.id for t in candidate.ticket_types if t.id is not None]

@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal, overload
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -29,15 +30,25 @@ class EventRepository:
         await self.session.flush()
         return event
 
-    async def get_for_update(self, event_id: UUID) -> Event:
+    @overload
+    async def get_for_update(
+        self, event_id: UUID, *, skip_locked: Literal[False] = False
+    ) -> Event: ...
+
+    @overload
+    async def get_for_update(
+        self, event_id: UUID, *, skip_locked: Literal[True]
+    ) -> Event | None: ...
+
+    async def get_for_update(self, event_id: UUID, *, skip_locked: bool = False) -> Event | None:
         event = await self.session.scalar(
             select(Event)
             .where(Event.id == event_id)
             .options(selectinload(Event.ticket_types))
-            .with_for_update()
+            .with_for_update(skip_locked=skip_locked)
             .execution_options(populate_existing=True)
         )
-        if event is None:
+        if event is None and not skip_locked:
             raise LookupError("Event not found")
         return event
 
