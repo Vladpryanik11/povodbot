@@ -40,6 +40,15 @@ def _dto(campaign: Campaign) -> CampaignDTO:
     )
 
 
+def _future_schedule(value: datetime) -> datetime:
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("Campaign schedule must be timezone-aware")
+    normalized = value.astimezone(UTC)
+    if normalized <= datetime.now(UTC):
+        raise ValueError("Campaign schedule must be in the future")
+    return normalized
+
+
 class CampaignService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -59,11 +68,14 @@ class CampaignService:
             raise ValueError("Campaign body is invalid")
         if not isinstance(audience, dict):
             raise ValueError("Campaign audience must be an object")
+        normalized_scheduled_at = (
+            _future_schedule(scheduled_at) if scheduled_at is not None else None
+        )
         campaign = Campaign(
             title=title.strip(),
             body=body,
             audience=audience,
-            scheduled_at=scheduled_at,
+            scheduled_at=normalized_scheduled_at,
             created_by=actor_id,
         )
         self.session.add(campaign)
@@ -80,10 +92,7 @@ class CampaignService:
         )
 
     async def schedule(self, campaign_id: UUID, scheduled_at: datetime) -> CampaignDTO:
-        if scheduled_at.tzinfo is None or scheduled_at.utcoffset() is None:
-            raise ValueError("Campaign schedule must be timezone-aware")
-        if scheduled_at.astimezone(UTC) <= datetime.now(UTC):
-            raise ValueError("Campaign schedule must be in the future")
+        normalized_scheduled_at = _future_schedule(scheduled_at)
         campaign = await self.session.scalar(
             select(Campaign).where(Campaign.id == campaign_id).with_for_update()
         )
@@ -91,7 +100,7 @@ class CampaignService:
             raise LookupError("Campaign not found")
         if CampaignStatus(campaign.status) != CampaignStatus.DRAFT:
             raise ValueError("Only draft campaigns can be scheduled")
-        campaign.scheduled_at = scheduled_at.astimezone(UTC)
+        campaign.scheduled_at = normalized_scheduled_at
         campaign.status = CampaignStatus.SCHEDULED
         await self.session.flush()
         return _dto(campaign)

@@ -9,40 +9,37 @@
 добавлять без изменения кода. Платежи идут через T‑Bank Internet Acquiring из
 кабинета Т‑Бизнеса, а не через API исходящих банковских переводов.
 
-Рабочая ветка:
+Архивный базовый срез был передан в ветке `codex/povod-task-3` на commit
+`1cba547`. Продолжение ведётся в отдельном clone/worktree:
 
 ```text
-codex/povod-task-3
-HEAD 1cba547 feat: harden payment and delivery transaction boundaries
+codex/povod-payment-hardening
+base ea98bdd docs: add project handoff and review record
+C:\Users\Влад\Documents\Codex\2026-09-24\b2b-1-ux-ui-sku-2-2\work\povod-mvp-git
 ```
 
-Текущий изолированный worktree:
-
-```text
-C:\Users\79268\.codex\worktrees\povod-mvp\Бот Повод
-```
-
-Исходная пользовательская папка не изменялась:
-
-```text
-C:\Users\79268\Documents\ChatGPT\Бот Повод
-```
-
-После commit `1cba547` worktree был чистым. Архив содержит именно этот срез и
-документацию из следующих файлов:
+Исходные пользовательские папки и приложенные bundle/zip не изменялись. В
+продолжении закрыты четыре payment/campaign hardening среза: durable Init
+lease и recovery, атомарная deduplication неизвестных webhook, порядок lock
+`event → order → payment`, admin orchestration для provider `GetState`/bind и
+валидация timezone-aware будущего расписания кампании. Архивный baseline и
+документация находятся в следующих файлах:
 
 - `README.md` — установка, запуск и проверки;
 - `HANDOFF.md` — этот переносимый контекст;
 - `docs/REVIEW_REPORT.md` — история ревью, закрытые и оставшиеся замечания;
 - `docs/TEST_REPORT.md` — фактические проверки и release gates;
-- `docs/superpowers/specs/2026-10-08-povod-mvp-design.md` — утверждённая
-  спецификация;
+- `docs/superpowers/specs/2026-10-08-povod-mvp-design.md` — рабочая
+  архитектурная спецификация;
 - `docs/superpowers/plans/2026-10-08-povod-mvp-implementation-plan.md` — план;
 - `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md` и `docs/ROADMAP.md`;
 - `migrations/` — Alembic migration chain;
 - `src/` — API, bot, services, repositories, models и workers;
 - `tests/` — unit/integration тесты на PostgreSQL и foundation-тесты;
 - `docker-compose.yml`, `Dockerfile`, `.env.example`, `pyproject.toml`.
+- `migrations/versions/0008_payment_init_lease.py` — durable lease для Init.
+- `docs/superpowers/plans/2026-10-08-povod-payment-hardening.md` — план
+  продолжения hardening.
 
 ## Что уже работает
 
@@ -81,22 +78,32 @@ C:\Users\79268\Documents\ChatGPT\Бот Повод
     ```
 
 13. Docker Compose теперь объявляет `api`, `bot`, `worker`, `postgres`, `redis`.
+14. Payment Init получает durable lease: конкурентный checkout делает один
+    provider Init, а просроченный lease переводит платеж в recovery без
+    повторного списания; поздний matching response привязывается idempotently.
+15. Webhook path атомарно дедуплицирует неизвестные события через PostgreSQL
+    `ON CONFLICT DO NOTHING`; известные платежные переходы используют единый
+    lock order `event → order → payment`, включая refund request/worker.
+16. Admin reconcile и bind разделяют короткие DB-транзакции и внешний
+    provider вызов; проверенный snapshot применяется отдельной транзакцией.
+17. `CampaignService.create_draft()` валидирует optional `scheduled_at` как
+    timezone-aware timestamp в будущем и сохраняет его в UTC.
 
 ## Актуальные проверки именно этого среза
 
-Все проверки выполнялись в worktree из этого файла, на disposable PostgreSQL:
+Проверки продолжения выполняются в текущем clone на disposable PostgreSQL:
 
 ```text
-TEST_DATABASE_URL=postgresql+asyncpg://povod@127.0.0.1:55432/povod_task2_test
+TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task2_test
 ```
 
 Результаты:
 
 ```text
-pytest -q                         249 passed in 120.90s
-ruff format --check .             passed; 134 files already formatted
+pytest -q                         258 passed in 186.36s
+ruff format --check .             passed; 138 files already formatted
 ruff check .                      passed
-mypy src                          passed; 90 source files
+mypy src                          passed; 91 source files
 compileall src tests scripts      passed
 import runtime entrypoints        passed without network calls
 scripts/check_secrets.py          Secret scan passed
@@ -106,10 +113,9 @@ Compose YAML parse                passed; api, bot, worker, postgres, redis
 git diff --check                  passed
 ```
 
-`docker compose config --quiet` не был выполнен, потому что на машине не
-установлена команда `docker`. Это единственная локальная проверка, которую
-нельзя было подтвердить реальным Docker CLI; YAML отдельно разобран PyYAML, а
-CI должен выполнить настоящий Compose gate.
+`docker compose config --quiet` по-прежнему не выполнен, потому что на машине
+не установлена команда `docker`. YAML отдельно разбирается PyYAML, а CI должен
+выполнить настоящий Compose gate.
 
 При работе с локальным PostgreSQL тесты создают схемы `task2_<uuid>` и удаляют
 их после каждого теста. Это disposable database, не production data.
@@ -127,8 +133,9 @@ CI должен выполнить настоящий Compose gate.
    git branch --show-current
    ```
 
-   Ожидается `1cba547` и ветка `codex/povod-task-3`; если архив был распакован
-   без `.git`, этот пункт можно пропустить.
+   Ожидается ветка `codex/povod-payment-hardening`; точный HEAD зависит от
+   последнего continuation-коммита. Если архив был распакован без `.git`, этот
+   пункт можно пропустить.
 
 4. Не переписывать утверждённые инварианты из roadmap: один клуб, event
    directions как данные, серверные суммы, 600 секунд брони, подтверждение
@@ -174,6 +181,9 @@ CI должен выполнить настоящий Compose gate.
 - QR в Telegram сейчас передаётся как непрозрачный token-текст; генерация
   изображения QR остаётся отдельным UX улучшением, криптографическая проверка и
   single-use check-in уже реализованы.
+- Portable PostgreSQL 16.15 для локальной проверки запускается без Windows
+  service на `127.0.0.1:55432`; это disposable test environment, не production
+  database.
 
 ## Официальные T‑Bank материалы
 

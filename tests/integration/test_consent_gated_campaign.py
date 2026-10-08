@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+
+import pytest
 
 from src.models.campaigns import Campaign, CampaignStatus
 from src.models.identity import ConsentSource, ConsentType
@@ -21,6 +24,38 @@ class Sender:
     async def send_message(self, telegram_id: int, text: str) -> str:
         self.calls.append(telegram_id)
         return "message-1"
+
+
+async def test_campaign_draft_schedule_requires_future_aware_utc(db_session):
+    admin = await AdminAuthService(AdminRepository(db_session)).create_user(
+        "schedule-admin", "password-123"
+    )
+    service = CampaignService(db_session)
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await service.create_draft(
+            admin.id, "Naive", "Hello", {}, scheduled_at=datetime(2026, 10, 9, 12)
+        )
+
+    with pytest.raises(ValueError, match="future"):
+        await service.create_draft(
+            admin.id,
+            "Past",
+            "Hello",
+            {},
+            scheduled_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+
+    future = datetime.now(UTC) + timedelta(hours=1)
+    campaign = await service.create_draft(
+        admin.id,
+        "Future",
+        "Hello",
+        {},
+        scheduled_at=future.astimezone(timezone(timedelta(hours=3))),
+    )
+    assert campaign.scheduled_at == future.astimezone(UTC)
+    assert campaign.status == CampaignStatus.DRAFT
 
 
 async def test_campaign_preview_and_delivery_require_current_marketing_consent(pg_factory):

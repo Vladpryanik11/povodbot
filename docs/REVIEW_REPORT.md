@@ -2,6 +2,27 @@
 
 Дата: 2026-10-08.
 
+## Продолжение после архивного baseline
+
+Архивный review фиксировал состояние после `1cba547`. В текущем clone на
+ветке `codex/povod-payment-hardening` дополнительно закрыты следующие
+payment/campaign hardening findings:
+
+- Payment Init получил durable lease и recovery path: конкурентный checkout не
+  делает второй Init, а поздний matching response привязывается idempotently.
+- Unknown webhook deduplication использует PostgreSQL `ON CONFLICT DO NOTHING`;
+  известные payment transitions и refund callers используют lock order
+  `event → order → payment`.
+- Admin `GetState`/bind вынесены в `PaymentAdminService`: provider вызов
+  происходит между короткими read/apply транзакциями, а snapshot проверяется до
+  записи provider identity.
+- Draft campaign schedule теперь требует timezone-aware timestamp в будущем и
+  нормализуется в UTC.
+
+Эти изменения покрыты focused PostgreSQL integration tests. Реальные T‑Bank,
+Telegram, Docker/Compose и backup/restore release gates остаются внешними
+ограничениями и не объявляются пройденными локальными тестами.
+
 ## История независимых ревью
 
 ### Ревью текущего `bb82cd8`
@@ -49,11 +70,10 @@
 
 ## Текущее состояние ревью на момент архива
 
-После commit `1cba547` был запущен новый read-only re-review с фокусом на этих
-изменениях. На момент создания архива финальное сообщение reviewer ещё могло не
-поступить. Это не скрывается: если в новой сессии нужно закрыть review gate,
-сначала прочитать статус reviewer и перепроверить HEAD, а затем применить только
-подтверждённые замечания.
+После commit `1cba547` был запущен новый read-only re-review; его статус в
+архивном bundle не был приложен. Поэтому текущая ветка использует отдельный
+self-review checklist и не выдаёт исторический незавершённый review за новый
+PASS.
 
 ## Оставшиеся риски, не замаскированные зелёными тестами
 
@@ -83,9 +103,30 @@
 - Первичный owner admin, backup encryption, RPO/RTO и restore rehearsal.
 - Docker Compose config настоящим Docker CLI или CI. Локально Docker отсутствовал;
   Compose YAML разобран PyYAML и дал services `api, bot, worker, postgres, redis`.
-- Финальное независимое ревью по `1cba547` после появления ответа reviewer.
+- Финальное review текущего continuation range `ea98bdd..HEAD` должно быть
+  зафиксировано в SDD-журнале; при отсутствии subagent tool выполняется как
+  отдельный self-review с code-reviewer checklist.
 
-## Фактические проверки `1cba547`
+## Фактические проверки continuation `ea98bdd..HEAD`
+
+```text
+pytest -q                         258 passed in 186.36s
+ruff format --check .             passed; 138 files already formatted
+ruff check .                      passed
+mypy src                          passed; 91 source files
+compileall -q src tests scripts   passed
+runtime imports                   passed without network calls
+scripts/check_secrets.py          Secret scan passed
+alembic upgrade head              passed
+alembic check                     No new upgrade operations detected
+PyYAML docker-compose parse       passed; api, bot, worker, postgres, redis
+git diff --check                  passed
+```
+
+Docker CLI is unavailable in the local environment, so
+`docker compose config --quiet` remains an unverified external gate.
+
+## Фактические проверки архивного `1cba547`
 
 ```text
 pytest -q                         249 passed in 120.90s

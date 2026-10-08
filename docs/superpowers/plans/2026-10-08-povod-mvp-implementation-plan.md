@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-povod-mvp-design.md`
 
+**Status (2026-10-08):** исторический implementation plan для MVP baseline.
+Базовая реализация передана в архивном срезе; payment/campaign continuation
+ведётся отдельным планом
+`docs/superpowers/plans/2026-10-08-povod-payment-hardening.md`. Чекбоксы ниже
+сохраняют исторический журнал агентской сессии и не являются актуальным
+release checklist. Реальные T‑Bank/Telegram/Docker/backup gates остаются
+неподтверждёнными без соответствующей инфраструктуры и credentials.
+
 ## Global Constraints
 
 - Один клуб «Повод»; мультиарендность и организации не входят в MVP.
