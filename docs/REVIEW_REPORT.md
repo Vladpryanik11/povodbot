@@ -75,6 +75,17 @@ Telegram, Docker/Compose и backup/restore release gates остаются вне
 self-review checklist и не выдаёт исторический незавершённый review за новый
 PASS.
 
+### Self-review continuation range `ea98bdd..HEAD`
+
+Self-review завершён отдельно, поскольку live subagent dispatch tool в текущем
+окружении недоступен. В ходе проверки был найден regression в затронутом
+payment path: промежуточные статусы T‑Bank (`NEW`, `3DS_*`, `AUTHORIZING` и
+другие) попадали в refund flow. Ветка теперь явно разделяет
+`REFUNDED_STATUSES` и промежуточные известные статусы, для которых сохраняется
+`PaymentStatus.PROCESSING` и `payment_processing`; добавлен regression test.
+После фикса полный PostgreSQL suite прошёл: **259 passed**. Неразрешённых
+Critical/Important findings по текущему срезу не осталось.
+
 ## Оставшиеся риски, не замаскированные зелёными тестами
 
 ### P1/P2 — production hardening
@@ -103,14 +114,11 @@ PASS.
 - Первичный owner admin, backup encryption, RPO/RTO и restore rehearsal.
 - Docker Compose config настоящим Docker CLI или CI. Локально Docker отсутствовал;
   Compose YAML разобран PyYAML и дал services `api, bot, worker, postgres, redis`.
-- Финальное review текущего continuation range `ea98bdd..HEAD` должно быть
-  зафиксировано в SDD-журнале; при отсутствии subagent tool выполняется как
-  отдельный self-review с code-reviewer checklist.
 
 ## Фактические проверки continuation `ea98bdd..HEAD`
 
 ```text
-pytest -q                         258 passed in 186.36s
+pytest -q                         259 passed in 180.28s
 ruff format --check .             passed; 138 files already formatted
 ruff check .                      passed
 mypy src                          passed; 91 source files

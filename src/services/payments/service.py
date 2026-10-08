@@ -604,7 +604,7 @@ class PaymentService:
             payment.status = PaymentStatus.REFUNDING
             order_status = await self._order_status(payment.order_id)
             reason = "refund_started"
-        else:
+        elif normalized in REFUNDED_STATUSES:
             order_status = await self._apply_refunded(payment, now)
             payment.status = (
                 PaymentStatus.REFUNDED
@@ -614,6 +614,10 @@ class PaymentService:
             reason = (
                 "payment_refunded" if order_status == OrderStatus.REFUNDED else "refund_reconcile"
             )
+        else:
+            payment.status = PaymentStatus.PROCESSING
+            order_status = await self._order_status(payment.order_id)
+            reason = "payment_processing"
 
         if payment.status == PaymentStatus.CONFIRMED:
             payment.paid_at = now

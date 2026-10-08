@@ -94,13 +94,13 @@ lease и recovery, атомарная deduplication неизвестных webho
 Проверки продолжения выполняются в текущем clone на disposable PostgreSQL:
 
 ```text
-TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task2_test
+TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task4_test
 ```
 
 Результаты:
 
 ```text
-pytest -q                         258 passed in 186.36s
+pytest -q                         259 passed in 180.28s
 ruff format --check .             passed; 138 files already formatted
 ruff check .                      passed
 mypy src                          passed; 91 source files
@@ -112,6 +112,12 @@ alembic check                     No new upgrade operations detected
 Compose YAML parse                passed; api, bot, worker, postgres, redis
 git diff --check                  passed
 ```
+
+Отдельный self-review continuation range `ea98bdd..HEAD` завершён. Он выявил
+и закрыл regression, при котором промежуточные статусы T‑Bank ошибочно
+попадали в refund flow; добавлен regression test, а полный suite после фикса
+проходит зелёным. Неразрешённых Critical/Important findings по текущему
+срезу не осталось; внешние release gates перечислены ниже.
 
 `docker compose config --quiet` по-прежнему не выполнен, потому что на машине
 не установлена команда `docker`. YAML отдельно разбирается PyYAML, а CI должен

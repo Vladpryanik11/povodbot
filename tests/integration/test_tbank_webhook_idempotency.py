@@ -75,3 +75,28 @@ async def test_start_reuses_existing_provider_payment(db_session):
     second = await payments.start(pending.order_id)
     assert first.payment_id == second.payment_id
     assert gateway.calls == 1
+
+
+async def test_in_progress_provider_status_does_not_trigger_refund_flow(db_session):
+    event, user = await catalog(db_session, capacity=2)
+    pending = await reservations(db_session).reserve(
+        event.id, [ReservationItem(event.ticket_types[0].id, 1)], user.id, NOW
+    )
+    payments = PaymentService(PaymentRepository(db_session), FakeGateway(), FixedClock(NOW))
+    checkout = await payments.start(pending.order_id)
+
+    result = await payments.apply_webhook(
+        PaymentWebhookDTO(
+            "payment-1",
+            "NEW",
+            15000,
+            event_id="progress-status",
+            payload={"Status": "NEW"},
+        )
+    )
+
+    assert result.reason == "payment_processing"
+    assert result.order_status == OrderStatus.PENDING_PAYMENT
+    stored = await db_session.scalar(select(Payment).where(Payment.id == checkout.payment_id))
+    assert stored is not None
+    assert PaymentStatus(stored.status) == PaymentStatus.PROCESSING

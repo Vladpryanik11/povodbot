@@ -12,15 +12,15 @@ lock order, admin provider orchestration и campaign schedule validation.
 Focused результаты перед финальным полным прогоном:
 
 - `test_payment_hardening.py`, `test_tbank_webhook_idempotency.py` и
-  `test_payment_after_expiry.py` — **15 passed**.
+  `test_payment_after_expiry.py` — **16 passed**.
 - `test_payment_admin_orchestration.py` вместе с payment-after-expiry — **9
   passed**.
 - `test_consent_gated_campaign.py` — **4 passed**.
 
 Финальный continuation suite и статические gates завершены:
 
-- `pytest -q` — **258 passed** (`186.36s`) на disposable PostgreSQL
-  `127.0.0.1:55432/povod_task2_test`.
+- `pytest -q` — **259 passed** (`180.28s`) на disposable PostgreSQL
+  `127.0.0.1:55432/povod_task4_test`.
 - `ruff format --check .` — passed; 138 files already formatted.
 - `ruff check .` — passed.
 - `mypy src` — passed; 91 source files.
@@ -30,6 +30,12 @@ Focused результаты перед финальным полным прог
 - Runtime imports и PyYAML Compose parse — passed; services `api, bot, worker,
   postgres, redis`.
 - `git diff --check` — passed.
+
+Отдельный self-review continuation range `ea98bdd..HEAD` завершён. В ходе
+проверки найден и исправлен regression промежуточных статусов T‑Bank: они
+ошибочно классифицировались как refund flow. Добавлен regression test; после
+фикса focused webhook suite — **3 passed**, полный suite — **259 passed**.
+Неразрешённых Critical/Important findings по текущему срезу не осталось.
 
 Приведённые ниже 249 тестов относятся к архивному baseline и сохранены как
 историческая точка сравнения.
@@ -86,6 +92,6 @@ Focused результаты перед финальным полным прог
 - Утвердить production webhook URL, T‑Bank fiscalization/sandbox settings,
   backup encryption, RPO/RTO и способ создания первого owner admin.
 - Выполнить sandbox payment + refund smoke test и isolated restore rehearsal.
-- Выполнить финальный self-review continuation range `ea98bdd..HEAD` по
-  code-reviewer checklist и сохранить его результат в SDD-журнале; исторический
-  re-review после `1cba547` не считать закрытым без его результата.
+- Self-review continuation range `ea98bdd..HEAD` выполнен и сохранён в
+  SDD-журнале; остающиеся пункты выше требуют внешнего sandbox/infrastructure
+  подтверждения перед коммерческим запуском.
