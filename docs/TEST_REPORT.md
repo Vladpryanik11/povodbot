@@ -4,18 +4,23 @@
 
 ## Пройдено
 
-- `pytest -q` — **240 passed** (`106.78s`) на PostgreSQL после очистки
+- `pytest -q` — **245 passed** (`118.29s`) на PostgreSQL после очистки
   disposable public schema
   `127.0.0.1:55432/povod_task2_test`.
-- `pytest tests/integration/test_identity_migration.py -q` — **2 passed**;
+- `pytest tests/integration/test_identity_migration.py -q` — **2 passed** (`2.26s`);
   миграции проходят upgrade/downgrade/upgrade и metadata comparison.
-- Scoped Task 7/8 набор — **8 passed**: admin session, permissions, campaign
-  consent gate, idempotent delivery, migration and queue checks.
+- Regression набор — **10 passed**: batched campaign delivery, event-scoped
+  check-in, unknown Init binding/reconciliation and refund recovery.
+- Telegram checkout/tickets + recreated dispatcher — **16 passed**: consent
+  onboarding, checkout reservation/payment link and user ticket QR view.
 - `python -m ruff format --check .` — passed.
 - `python -m ruff check .` — passed.
-- `python -m mypy src` — passed, 82 source files.
+- `python -m mypy src` — passed, 86 source files.
 - `python -m compileall -q src tests scripts` — passed.
+- `python -m alembic upgrade head` — passed on disposable PostgreSQL.
+- `python -m alembic check` — `No new upgrade operations detected.`
 - `git diff --check` — passed; CRLF warnings Git не являются ошибками содержимого.
+- `python scripts/check_secrets.py` — `Secret scan passed`.
 - Task 4 независимое ownership review — **PASS**; PostgreSQL triggers и порядок
   downgrade проверены отдельным reviewer.
 
@@ -30,6 +35,11 @@
 - Backup/restore scripts проверены статически и защищены явным target/confirmation;
   фактический restore требует отдельного recovery PostgreSQL и инфраструктурных
   credentials.
+- Telegram delivery пока выполняется через текущий worker-контракт; перед
+  production нужен Redis-backed runner/outbox для отделения внешнего Telegram
+  вызова от транзакции БД. Возвраты и потерянные Init защищены локальными
+  состояниями и ручной сверкой, но всё равно требуют provider smoke/recovery
+  rehearsal.
 
 ## Release risks requiring owner confirmation
 

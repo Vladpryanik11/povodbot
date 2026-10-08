@@ -1,8 +1,12 @@
 # Повод
 
-Single-club modular monolith for Telegram ticket sales, CRM and check-in.
-Task 1 provides configuration, JSON logging, database sessions, health checks,
-local services and CI. Product flows are planned in [ROADMAP](docs/ROADMAP.md).
+Single-club modular monolith for Telegram ticket sales, CRM and check-in. The
+MVP core is assembled in the isolated implementation branch: onboarding and
+consents, directions and showcase, reservations/orders, T‑Bank Internet
+Acquiring, webhook reconciliation, tickets/check-in, admin RBAC and audit,
+consent-gated CRM campaigns, attribution and operational tooling. External
+provider sandbox and recovery rehearsal remain release gates; see
+[ROADMAP](docs/ROADMAP.md) and [TEST_REPORT](docs/TEST_REPORT.md).
 
 ## Local setup
 
@@ -14,6 +18,7 @@ python -m venv .venv
 python -m pip install -e '.[dev]'
 Copy-Item .env.example .env
 docker compose up -d postgres redis
+python -m alembic upgrade head
 uvicorn src.api.app:create_app --factory --reload
 ```
 
@@ -24,8 +29,8 @@ The minimal admin shell is available at `/admin`; authenticate via
 `POST /api/admin/auth/login`. Campaign delivery rechecks marketing consent and
 blocked-user state immediately before sending. `/stop` in the Telegram bot
 revokes marketing consent.
-Readiness currently probes only PostgreSQL; Redis is used by a later worker slice.
-No schema or migration is created automatically.
+Readiness currently probes only PostgreSQL; Redis is the queue boundary for the
+next worker deployment slice. No schema or migration is created automatically.
 
 ## Checks
 
@@ -36,6 +41,7 @@ python -m ruff check .
 python -m mypy src
 docker compose config --quiet
 python scripts/check_secrets.py
+python -m alembic check
 ```
 
 Use `python -m ruff format .` to format. Commands and options are configured in

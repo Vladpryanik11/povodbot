@@ -64,3 +64,32 @@ async def test_segment_excludes_blocked_and_unconsented_users(db_session):
     )
     recipients = await SegmentService(db_session).resolve({})
     assert [recipient.telegram_id for recipient in recipients] == [201]
+
+
+async def test_campaign_delivery_continues_with_later_batches(db_session):
+    users = []
+    for telegram_id in (203, 204, 205):
+        user = await UserService(UserRepository(db_session)).upsert_telegram_user(
+            telegram_id, f"User {telegram_id}", None, None, None
+        )
+        await ConsentService(ConsentRepository(db_session)).record(
+            user.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM
+        )
+        users.append(user)
+
+    admin = await AdminAuthService(AdminRepository(db_session)).create_user(
+        "batch-admin", "password-123"
+    )
+    campaign = await CampaignService(db_session).create_draft(
+        admin.id, "Batch", "Hello", {"telegram_ids": [user.telegram_id for user in users]}
+    )
+    campaign_model = await db_session.get(Campaign, campaign.id)
+    assert campaign_model is not None
+    campaign_model.status = CampaignStatus.SCHEDULED
+
+    sender = Sender([])
+    worker = CampaignDeliveryWorker(db_session, sender)
+    assert await worker.deliver(campaign.id, batch_size=2) == 2
+    assert await worker.deliver(campaign.id, batch_size=2) == 1
+    assert len(sender.calls) == 3
+    assert set(sender.calls) == {203, 204, 205}

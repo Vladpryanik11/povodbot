@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.models.commerce import Order
 from src.models.tickets import Ticket
 
 if TYPE_CHECKING:
@@ -32,6 +33,16 @@ class TicketRepository:
                 select(Ticket)
                 .where(Ticket.order_id == order_id)
                 .order_by(Ticket.order_item_id, Ticket.position, Ticket.id)
+            )
+        )
+
+    async def list_for_user(self, user_id: UUID) -> list[Ticket]:
+        return list(
+            await self.session.scalars(
+                select(Ticket)
+                .join(Order, Order.id == Ticket.order_id)
+                .where(Order.user_id == user_id)
+                .order_by(Ticket.issued_at.desc(), Ticket.id)
             )
         )
 

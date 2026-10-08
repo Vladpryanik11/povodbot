@@ -57,6 +57,8 @@ class CheckinService:
         event_id: UUID,
     ) -> CheckinResult:
         self._require_transaction()
+        if event_id is None:
+            raise InvalidTicket("Event is required for check-in")
         checked_at = _utc(now)
         try:
             ticket_id = self.qr.ticket_id(token)

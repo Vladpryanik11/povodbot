@@ -44,3 +44,9 @@ async def test_checkin_rejects_wrong_event_and_voided_ticket(db_session):
     await TicketService(db_session, qr).void(ticket.id, "manual_void", uuid4())
     with pytest.raises(InvalidTicket, match="voided"):
         await service.check(ticket.qr_token, uuid4(), NOW, event.id)
+
+
+async def test_checkin_requires_event_scope(db_session):
+    event, ticket, qr = await paid_ticket(db_session)
+    with pytest.raises(InvalidTicket, match="Event is required"):
+        await CheckinService(db_session, qr).check(ticket.qr_token, uuid4(), NOW, None)

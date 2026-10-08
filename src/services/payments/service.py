@@ -76,6 +76,9 @@ def _safe_payload(payload: dict[str, Any]) -> dict[str, object]:
         "token",
         "password",
         "pan",
+        "apikey",
+        "authorization",
+        "cookie",
         "cardid",
         "expdate",
         "rebillid",
@@ -374,6 +377,9 @@ class PaymentService:
             )
             if user_id is not None:
                 attribution = AttributionService(self.repository.session)
+                await attribution.record_funnel_event(
+                    user_id, FunnelEventName.CHECKOUT, occurred_at=now
+                )
                 await attribution.record_purchase(user_id, now)
                 await attribution.record_funnel_event(
                     user_id, FunnelEventName.PURCHASE, occurred_at=now
@@ -476,6 +482,23 @@ class PaymentService:
         )
         return self._dto(payment)
 
+    async def bind_provider_payment(self, payment_id: UUID, provider_payment_id: str) -> PaymentDTO:
+        self._require_transaction()
+        provider_payment_id = provider_payment_id.strip()
+        if not provider_payment_id or len(provider_payment_id) > 64:
+            raise PaymentStateError("Provider payment id is invalid")
+        payment = await self.repository.get_for_update(payment_id)
+        if PaymentStatus(payment.status) != PaymentStatus.RECONCILIATION_REQUIRED:
+            raise PaymentStateError("Only unresolved payments can be bound")
+        other = await self.repository.by_provider_payment_for_update(provider_payment_id)
+        if other is not None and other.id != payment.id:
+            raise PaymentStateError("Provider payment id is already linked")
+        payment.provider_payment_id = provider_payment_id
+        payment.provider_status = "MANUAL_BIND"
+        payment.status = PaymentStatus.PROCESSING
+        await self.repository.save()
+        return self._dto(payment)
+
     async def request_refund(self, payment_id: UUID, reason: str) -> PaymentDTO:
         self._require_transaction()
         if not reason or len(reason) > 64:
@@ -492,11 +515,19 @@ class PaymentService:
             return self._dto(payment)
         if PaymentStatus(payment.status) != PaymentStatus.CONFIRMED:
             raise PaymentStateError("Only confirmed payments can be refunded")
-        result = await self.gateway.refund(
-            payment.provider_payment_id, payment.amount_kopecks, reason
-        )
-        payment.provider_status = result.provider_status
         payment.status = PaymentStatus.REFUNDING
         await self._transition(payment.order_id, OrderTransition.REQUEST_REFUND, "refund_requested")
+        await self.repository.save()
+        try:
+            result = await self.gateway.refund(
+                payment.provider_payment_id, payment.amount_kopecks, reason
+            )
+        except PaymentGatewayError:
+            # The local operation is already marked REFUNDING. A retry must
+            # reconcile provider state instead of issuing another Cancel.
+            payment.provider_status = "REFUND_UNKNOWN"
+            await self.repository.save()
+            return self._dto(payment)
+        payment.provider_status = result.provider_status
         await self.repository.save()
         return self._dto(payment)

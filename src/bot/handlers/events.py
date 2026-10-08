@@ -3,16 +3,23 @@ from zoneinfo import ZoneInfo
 
 from src.bot.handlers.start import BotResponse
 from src.bot.keyboards.events import directions_keyboard, event_keyboard, events_keyboard
+from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.directions.service import DirectionService
 from src.services.events.service import EventService
 
 
 class EventHandler:
-    def __init__(self, events: EventService, directions: DirectionService):
+    def __init__(
+        self,
+        events: EventService,
+        directions: DirectionService,
+        attribution: AttributionService | None = None,
+    ):
         self.events = events
         self.directions = directions
+        self.attribution = attribution
 
-    async def read(self, data: str) -> BotResponse:
+    async def read(self, data: str, user_id: UUID | None = None) -> BotResponse:
         if data == "events:directions":
             return BotResponse(
                 "Выберите направление", directions_keyboard(await self.directions.list_active())
@@ -34,6 +41,8 @@ class EventHandler:
             if kind != "event":
                 raise ValueError("Unknown navigation")
             event = await self.events.get_public(entity_id)
+            if self.attribution is not None and user_id is not None:
+                await self.attribution.record_funnel_event(user_id, FunnelEventName.SHOWCASE)
         except (ValueError, LookupError):
             return BotResponse(
                 "Мероприятие недоступно. Откройте актуальную афишу.", events_keyboard([])

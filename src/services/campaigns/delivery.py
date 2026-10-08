@@ -37,8 +37,17 @@ class CampaignDeliveryWorker:
             return 0
         campaign.status = CampaignStatus.RUNNING
         recipients = await self.segments.resolve(campaign.audience)
+        completed_ids = set(
+            await self.session.scalars(
+                select(CampaignDelivery.user_id).where(
+                    CampaignDelivery.campaign_id == campaign.id,
+                    CampaignDelivery.status.in_([DeliveryStatus.SENT, DeliveryStatus.BLOCKED]),
+                )
+            )
+        )
+        pending_recipients = [r for r in recipients if r.user_id not in completed_ids]
         delivered = 0
-        for recipient in recipients[:batch_size]:
+        for recipient in pending_recipients[:batch_size]:
             key = f"campaign:{campaign.id}:user:{recipient.user_id}"
             delivery = await self.session.scalar(
                 select(CampaignDelivery)

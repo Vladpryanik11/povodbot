@@ -31,4 +31,7 @@ CI проверяет pytest на disposable PostgreSQL, Ruff, mypy и Compose c
 
 Суммы вычисляются сервером, бронь длится 600 секунд, timestamps timezone-aware
 в UTC, timezone мероприятия хранится явно. Подтверждение платежей, дедупликация,
-защита вместимости, QR и согласия реализуются последующими задачами плана.
+защита вместимости, QR, check-in, согласия, CRM и базовые кампании реализованы
+сервисными срезами. Outbox-таблица подготовлена как durable boundary; внешний
+provider call и полноразмерный Redis worker остаются эксплуатационным hardening
+перед production.

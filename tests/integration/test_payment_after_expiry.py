@@ -43,6 +43,15 @@ class UnknownInitGateway(FakeGateway):
         raise PaymentGatewayError("response lost after Init")
 
 
+@dataclass
+class RefundFailureGateway(FakeGateway):
+    refund_calls: int = 0
+
+    async def refund(self, provider_payment_id: str, amount_minor: int, reason: str):
+        self.refund_calls += 1
+        raise PaymentGatewayError("response lost after Cancel")
+
+
 async def test_confirmation_after_expiry_requires_reconciliation_and_releases_reservation(
     db_session,
 ):
@@ -77,3 +86,38 @@ async def test_unknown_init_is_persisted_and_not_retried_as_a_second_charge(db_s
     with pytest.raises(PaymentStateError, match="reconciliation"):
         await payments.start(pending.order_id)
     assert gateway.calls == 1
+
+
+async def test_unknown_init_can_be_bound_and_reconciled_by_operator(db_session):
+    event, user = await catalog(db_session)
+    pending = await reservations(db_session).reserve(
+        event.id, [ReservationItem(event.ticket_types[0].id, 1)], user.id, NOW
+    )
+    gateway = UnknownInitGateway()
+    payments = PaymentService(PaymentRepository(db_session), gateway, FixedClock(NOW))
+    await payments.start(pending.order_id)
+    payment = await PaymentRepository(db_session).by_order_for_update(pending.order_id)
+    assert payment is not None
+    bound = await payments.bind_provider_payment(payment.id, "recovered-provider-id")
+    assert bound.provider_payment_id == "recovered-provider-id"
+    reconciled = await payments.reconcile(payment.id)
+    assert reconciled.status.value == "confirmed"
+
+
+async def test_refund_failure_keeps_operation_in_reconcilable_state(db_session):
+    event, user = await catalog(db_session)
+    pending = await reservations(db_session).reserve(
+        event.id, [ReservationItem(event.ticket_types[0].id, 1)], user.id, NOW
+    )
+    gateway = RefundFailureGateway()
+    payments = PaymentService(PaymentRepository(db_session), gateway, FixedClock(NOW))
+    checkout = await payments.start(pending.order_id)
+    await payments.apply_webhook(
+        PaymentWebhookDTO("late-payment", "CONFIRMED", 15000, payload={"Status": "CONFIRMED"})
+    )
+    result = await payments.request_refund(checkout.payment_id, "customer_request")
+    assert result.status.value == "refunding"
+    assert gateway.refund_calls == 1
+    repeated = await payments.request_refund(checkout.payment_id, "customer_request")
+    assert repeated.status.value == "refunding"
+    assert gateway.refund_calls == 1

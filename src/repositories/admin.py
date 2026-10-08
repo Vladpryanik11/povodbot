@@ -63,7 +63,23 @@ class AdminRepository:
         success: bool = True,
     ) -> AdminAuditLog:
         # Callers pass already-redacted bounded metadata; keep the stored shape small.
-        blocked = ("token", "password", "secret", "credential", "payload", "pan")
+        blocked = (
+            "token",
+            "password",
+            "secret",
+            "credential",
+            "payload",
+            "pan",
+            "api_key",
+            "apikey",
+            "authorization",
+            "cookie",
+            "cardid",
+            "expdate",
+            "rebillid",
+            "cvv",
+            "cvc",
+        )
         safe_details = {
             str(key)[:64]: value
             for key, value in (details or {}).items()

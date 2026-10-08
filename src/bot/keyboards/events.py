@@ -34,6 +34,16 @@ def event_keyboard(event: PublicEventDTO) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
+                    text=f"Купить: {ticket.name[:32]}", callback_data=f"buy:{ticket.id}"
+                )
+            ]
+            for ticket in event.ticket_types
+        ]
+    )
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
                     text="К направлению", callback_data=f"direction:{event.direction_id}"
                 )
             ],

@@ -14,7 +14,8 @@ from src.repositories.admin import AdminRepository
 from src.repositories.payments import PaymentRepository
 from src.services.admin.permissions import AdminActor, Permission
 from src.services.audit.service import AuditService
-from src.services.payments.service import PaymentService
+from src.services.payments.ports import PaymentGatewayError
+from src.services.payments.service import PaymentService, PaymentStateError
 from src.services.payments.tbank_client import TBankPaymentGateway
 
 router = APIRouter(prefix="/api/admin/payments", tags=["admin payments"])
@@ -29,6 +30,11 @@ async def require_payment_admin(
 class RefundInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: str
+
+
+class ProviderBindingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider_payment_id: str
 
 
 def _gateway() -> TBankPaymentGateway:
@@ -83,6 +89,33 @@ async def reconcile_payment(
             actor.id, "payment.reconcile", "payment", payment_id
         )
         return result
+    except PaymentStateError as exc:
+        raise HTTPException(status_code=409, detail="Payment cannot be reconciled") from exc
+    except PaymentGatewayError as exc:
+        raise HTTPException(status_code=502, detail="Payment provider is unavailable") from exc
+    finally:
+        await gateway.aclose()
+
+
+@router.post("/{payment_id}/bind-provider")
+async def bind_provider_payment(
+    payment_id: UUID,
+    payload: ProviderBindingInput,
+    actor: Annotated[AdminActor, Depends(require_payment_admin)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> object:
+    await _payment_or_404(session, payment_id)
+    gateway = _gateway()
+    try:
+        result = await PaymentService(PaymentRepository(session), gateway).bind_provider_payment(
+            payment_id, payload.provider_payment_id
+        )
+        await AuditService(AdminRepository(session)).record(
+            actor.id, "payment.bind_provider", "payment", payment_id
+        )
+        return result
+    except PaymentStateError as exc:
+        raise HTTPException(status_code=409, detail="Provider payment cannot be bound") from exc
     finally:
         await gateway.aclose()
 
@@ -104,5 +137,11 @@ async def refund_payment(
             actor.id, "payment.refund", "payment", payment_id
         )
         return result
+    except PaymentStateError as exc:
+        raise HTTPException(status_code=409, detail="Payment cannot be refunded") from exc
+    except PaymentGatewayError as exc:
+        raise HTTPException(status_code=502, detail="Payment provider is unavailable") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid refund request") from exc
     finally:
         await gateway.aclose()
