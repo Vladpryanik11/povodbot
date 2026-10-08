@@ -21,7 +21,8 @@ Lifespan настраивает JSON-логи и освобождает engine �
 
 `/health` возвращает 200 без БД. `/ready` выполняет `SELECT 1` и возвращает 200
 или безопасный 503 без текста ошибки драйвера. Таймаут ограничивает проверку БД.
-Redis readiness добавляется при реализации worker; сейчас он не нужен API.
+Redis readiness не требуется API; worker использует PostgreSQL outbox как durable
+границу и может получить Redis-backed scheduler без изменения финансового состояния.
 
 Python 3.12+, SQLAlchemy 2 async/asyncpg, Pydantic Settings, FastAPI/Uvicorn,
 structlog; версии прямых зависимостей закреплены в pyproject.toml.
@@ -32,6 +33,14 @@ CI проверяет pytest на disposable PostgreSQL, Ruff, mypy и Compose c
 Суммы вычисляются сервером, бронь длится 600 секунд, timestamps timezone-aware
 в UTC, timezone мероприятия хранится явно. Подтверждение платежей, дедупликация,
 защита вместимости, QR, check-in, согласия, CRM и базовые кампании реализованы
-сервисными срезами. Outbox-таблица подготовлена как durable boundary; внешний
-provider call и полноразмерный Redis worker остаются эксплуатационным hardening
-перед production.
+сервисными срезами. Checkout сначала фиксирует заказ/бронь и payment intent,
+после чего вызывает T‑Bank между двумя локальными транзакциями. Потерянный Init
+восстанавливается через `CheckOrder` по merchant `OrderId`.
+
+Кампания и возврат сначала записывают команду в `outbox` в той же транзакции,
+что и локальное состояние. Worker забирает команду с lease, выполняет внешний
+Telegram/T‑Bank вызов вне DB-транзакции и отдельной транзакцией фиксирует результат.
+После неясного Cancel worker делает status lookup, переводит операцию в
+`REFUND_UNKNOWN` и оставляет её для ручной сверки вместо слепого повторного
+возврата. Redis-backed scheduler и provider sandbox smoke остаются production
+release gates; PostgreSQL outbox уже является рабочим MVP delivery boundary.

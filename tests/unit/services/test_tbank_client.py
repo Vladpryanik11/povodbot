@@ -59,6 +59,35 @@ async def test_create_payment_maps_payment_url_and_signed_payload():
 
 
 @pytest.mark.asyncio
+async def test_check_order_recovers_provider_identity_after_lost_init_response():
+    seen: dict[str, object] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "Success": True,
+                "PaymentId": 9876,
+                "OrderId": "order-1",
+                "Amount": 15000,
+                "Status": "NEW",
+            },
+        )
+
+    gateway = TBankPaymentGateway("terminal", "password", transport=httpx.MockTransport(handler))
+    try:
+        result = await gateway.find_by_order("order-1")
+    finally:
+        await gateway.aclose()
+
+    assert result.provider_payment_id == "9876"
+    assert result.provider_status == "NEW"
+    assert result.amount_minor == 15000
+    assert seen["OrderId"] == "order-1"
+
+
+@pytest.mark.asyncio
 async def test_provider_rejection_and_timeout_are_typed_without_secret():
     async def rejected(_: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"Success": False, "Message": "secret password"})

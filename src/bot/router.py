@@ -23,6 +23,8 @@ from src.services.analytics.attribution import AttributionService
 from src.services.consents.service import ConsentService
 from src.services.directions.service import DirectionService
 from src.services.events.service import EventService
+from src.services.orders.service import PendingOrderDTO
+from src.services.payments.checkout import PaymentCheckoutService
 from src.services.payments.ports import PaymentGateway
 from src.services.payments.service import PaymentStateError
 from src.services.payments.tbank_client import TBankPaymentGateway
@@ -93,6 +95,8 @@ def create_router(
             await query.answer()
             return
         factory = session_factory or get_session_factory()
+        pending_order: PendingOrderDTO | None = None
+        created_gateway: TBankPaymentGateway | None = None
         async with factory() as session, session.begin():
             user = await UserRepository(session).by_telegram_id(query.from_user.id)
             if user is None or not await ConsentService(ConsentRepository(session)).is_active(
@@ -105,18 +109,13 @@ def create_router(
                     if len(parts) == 2 and parts[0] == "buy":
                         response = await CheckoutHandler(session).choose_quantity(UUID(parts[1]))
                     elif len(parts) == 3 and parts[0] == "quantity":
-                        created_gateway = None
-                        gateway = payment_gateway
-                        if gateway is None:
-                            created_gateway = _new_tbank_gateway()
-                            gateway = created_gateway
-                        try:
-                            response = await CheckoutHandler(session, gateway).create_payment(
-                                UUID(parts[1]), int(parts[2]), user.id
-                            )
-                        finally:
-                            if created_gateway is not None:
-                                await created_gateway.aclose()
+                        _, pending_order = await CheckoutHandler(session).create_order(
+                            UUID(parts[1]), int(parts[2]), user.id
+                        )
+                        response = BotResponse(
+                            "Заказ создан. Готовим защищённую ссылку на оплату…",
+                            events_keyboard([]),
+                        )
                     else:
                         raise ValueError("Invalid checkout callback")
                 except (LookupError, PaymentStateError, ValueError):
@@ -124,6 +123,24 @@ def create_router(
                         "Не удалось создать заказ. Откройте актуальную афишу и попробуйте ещё раз.",
                         events_keyboard([]),
                     )
+        if pending_order is not None:
+            gateway = payment_gateway
+            if gateway is None:
+                created_gateway = _new_tbank_gateway()
+                gateway = created_gateway
+            try:
+                checkout = await PaymentCheckoutService(factory, gateway).start(
+                    pending_order.order_id
+                )
+                response = CheckoutHandler.payment_response(pending_order, checkout)
+            except (LookupError, PaymentStateError, ValueError):
+                response = BotResponse(
+                    "Заказ создан, но платёж не удалось запустить. Обратитесь в поддержку клуба.",
+                    events_keyboard([]),
+                )
+            finally:
+                if created_gateway is not None:
+                    await created_gateway.aclose()
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
 

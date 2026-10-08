@@ -14,6 +14,7 @@ from src.models.commerce import (
     Reservation,
     ReservationStatus,
 )
+from src.models.outbox import Outbox
 from src.models.payments import Payment, PaymentEvent, PaymentStatus
 from src.repositories.orders import OrderRepository
 from src.repositories.payments import PaymentRepository
@@ -22,9 +23,11 @@ from src.services.commerce.clock import Clock, SystemClock
 from src.services.orders.service import InvalidOrderTransition, OrderService
 from src.services.payments.dtos import (
     CreatePaymentRequest,
+    CreatePaymentResponse,
     PaymentCheckoutDTO,
     PaymentDTO,
     PaymentWebhookDTO,
+    ProviderPaymentStatus,
 )
 from src.services.payments.ports import PaymentGateway, PaymentGatewayError
 
@@ -63,6 +66,14 @@ class PaymentApplicationResult:
     payment_status: PaymentStatus | None
     order_status: OrderStatus | None
     reason: str
+
+
+@dataclass(frozen=True)
+class PaymentInitIntent:
+    payment_id: UUID
+    order_id: UUID
+    request: CreatePaymentRequest | None
+    checkout: PaymentCheckoutDTO
 
 
 def _utc(value: datetime) -> datetime:
@@ -148,7 +159,24 @@ class PaymentService:
             return PaymentStatus.FAILED
         return PaymentStatus.PROCESSING
 
-    async def start(self, order_id: UUID) -> PaymentCheckoutDTO:
+    @staticmethod
+    def _validate_provider_snapshot(payment: Payment, provider: ProviderPaymentStatus) -> None:
+        if provider.provider_payment_id != payment.provider_payment_id:
+            raise PaymentStateError("Provider payment identity does not match")
+        if provider.amount_minor is not None and provider.amount_minor != payment.amount_kopecks:
+            raise PaymentStateError("Provider amount does not match the payment")
+        raw_order_id = next(
+            (
+                value
+                for key, value in provider.raw.items()
+                if str(key).lower().replace("_", "") == "orderid"
+            ),
+            None,
+        )
+        if raw_order_id is not None and str(raw_order_id) != str(payment.order_id):
+            raise PaymentStateError("Provider order does not match the payment")
+
+    async def prepare(self, order_id: UUID) -> PaymentInitIntent:
         self._require_transaction()
         now = _utc(self.clock.now())
         order = await OrderRepository(self.repository.session).get_for_update(order_id)
@@ -168,18 +196,28 @@ class PaymentService:
 
         existing = await self.repository.by_order_for_update(order.id)
         if existing is not None and existing.provider_payment_id and existing.payment_url:
-            return PaymentCheckoutDTO(
+            checkout = PaymentCheckoutDTO(
                 existing.id,
                 existing.order_id,
                 existing.provider_payment_id,
                 existing.payment_url,
                 PaymentStatus(existing.status),
             )
+            return PaymentInitIntent(existing.id, existing.order_id, None, checkout)
         if (
             existing is not None
             and PaymentStatus(existing.status) == PaymentStatus.RECONCILIATION_REQUIRED
         ):
             raise PaymentStateError("Payment initialization requires reconciliation")
+        if existing is not None and existing.provider_payment_id:
+            checkout = PaymentCheckoutDTO(
+                existing.id,
+                existing.order_id,
+                existing.provider_payment_id,
+                existing.payment_url,
+                PaymentStatus(existing.status),
+            )
+            return PaymentInitIntent(existing.id, existing.order_id, None, checkout)
 
         if existing is None:
             payment = Payment(
@@ -194,30 +232,30 @@ class PaymentService:
         else:
             payment = existing
 
-        try:
-            response = await self.gateway.create_payment(
-                CreatePaymentRequest(
-                    order_id=order.id,
-                    amount_minor=order.total_kopecks,
-                    description=f"Повод — заказ {order.id}",
-                    redirect_due_date=order.expires_at,
-                )
-            )
-        except PaymentGatewayError:
-            # The provider may have accepted Init before the response was
-            # lost. Persist an unresolved state and never issue Init twice
-            # for the same local order without reconciliation.
-            payment.status = PaymentStatus.RECONCILIATION_REQUIRED
-            payment.provider_status = "INIT_UNKNOWN"
-            await self.repository.save()
-            return PaymentCheckoutDTO(
+        request = CreatePaymentRequest(
+            order_id=order.id,
+            amount_minor=order.total_kopecks,
+            description=f"Повод — заказ {order.id}",
+            redirect_due_date=order.expires_at,
+        )
+        return PaymentInitIntent(
+            payment.id,
+            payment.order_id,
+            request,
+            PaymentCheckoutDTO(
                 payment.id, payment.order_id, None, None, PaymentStatus(payment.status)
-            )
-        if response.amount_minor is not None and response.amount_minor != order.total_kopecks:
+            ),
+        )
+
+    async def complete_init(
+        self, payment_id: UUID, response: CreatePaymentResponse
+    ) -> PaymentCheckoutDTO:
+        self._require_transaction()
+        payment = await self.repository.get_for_update(payment_id)
+        if response.amount_minor is not None and response.amount_minor != payment.amount_kopecks:
             raise PaymentStateError("Provider amount does not match the order")
         if not response.provider_payment_id or not response.payment_url:
             raise PaymentStateError("Provider response is missing payment identity")
-
         payment.provider_payment_id = response.provider_payment_id
         payment.provider_status = response.provider_status
         payment.payment_url = response.payment_url
@@ -230,6 +268,78 @@ class PaymentService:
             response.payment_url,
             PaymentStatus(payment.status),
         )
+
+    async def mark_init_unknown(self, payment_id: UUID) -> PaymentCheckoutDTO:
+        self._require_transaction()
+        payment = await self.repository.get_for_update(payment_id)
+        payment.status = PaymentStatus.RECONCILIATION_REQUIRED
+        payment.provider_status = "INIT_UNKNOWN"
+        await self.repository.save()
+        return PaymentCheckoutDTO(
+            payment.id,
+            payment.order_id,
+            payment.provider_payment_id,
+            payment.payment_url,
+            PaymentStatus(payment.status),
+        )
+
+    async def attach_recovered_init(
+        self, payment_id: UUID, recovered: ProviderPaymentStatus
+    ) -> PaymentCheckoutDTO:
+        self._require_transaction()
+        payment = await self.repository.get_for_update(payment_id)
+        if recovered.amount_minor is not None and recovered.amount_minor != payment.amount_kopecks:
+            raise PaymentStateError("Recovered provider amount does not match the order")
+        raw_order_id = next(
+            (
+                value
+                for key, value in recovered.raw.items()
+                if str(key).lower().replace("_", "") == "orderid"
+            ),
+            None,
+        )
+        if raw_order_id is not None and str(raw_order_id) != str(payment.order_id):
+            raise PaymentStateError("Recovered provider order does not match the order")
+        payment.provider_payment_id = recovered.provider_payment_id
+        payment.provider_status = recovered.provider_status
+        payment.status = PaymentStatus.RECONCILIATION_REQUIRED
+        await self.repository.save()
+        return PaymentCheckoutDTO(
+            payment.id,
+            payment.order_id,
+            payment.provider_payment_id,
+            None,
+            PaymentStatus(payment.status),
+        )
+
+    async def start(self, order_id: UUID) -> PaymentCheckoutDTO:
+        """Legacy single-session helper retained for service-level callers.
+
+        Production request handlers use :class:`PaymentCheckoutService`, which
+        commits the local intent before calling T-Bank and stores the provider
+        result in a second transaction. This helper keeps the original service
+        contract for small in-process integrations and tests.
+        """
+        intent = await self.prepare(order_id)
+        if intent.request is None:
+            return intent.checkout
+
+        try:
+            response = await self.gateway.create_payment(intent.request)
+        except PaymentGatewayError:
+            # The provider may have accepted Init before the response was
+            # lost. Persist an unresolved state and never issue Init twice
+            # for the same local order without reconciliation.
+            finder = getattr(self.gateway, "find_by_order", None)
+            if callable(finder):
+                try:
+                    recovered = await finder(str(intent.order_id))
+                except PaymentGatewayError:
+                    recovered = None
+                if recovered is not None:
+                    return await self.attach_recovered_init(intent.payment_id, recovered)
+            return await self.mark_init_unknown(intent.payment_id)
+        return await self.complete_init(intent.payment_id, response)
 
     async def apply_webhook(self, event: PaymentWebhookDTO) -> PaymentApplicationResult:
         self._require_transaction()
@@ -377,9 +487,6 @@ class PaymentService:
             )
             if user_id is not None:
                 attribution = AttributionService(self.repository.session)
-                await attribution.record_funnel_event(
-                    user_id, FunnelEventName.CHECKOUT, occurred_at=now
-                )
                 await attribution.record_purchase(user_id, now)
                 await attribution.record_funnel_event(
                     user_id, FunnelEventName.PURCHASE, occurred_at=now
@@ -493,13 +600,24 @@ class PaymentService:
         other = await self.repository.by_provider_payment_for_update(provider_payment_id)
         if other is not None and other.id != payment.id:
             raise PaymentStateError("Provider payment id is already linked")
+        provider = await self.gateway.get_status(provider_payment_id)
         payment.provider_payment_id = provider_payment_id
-        payment.provider_status = "MANUAL_BIND"
+        self._validate_provider_snapshot(payment, provider)
+        payment.provider_payment_id = provider_payment_id
+        payment.provider_status = provider.provider_status
         payment.status = PaymentStatus.PROCESSING
         await self.repository.save()
         return self._dto(payment)
 
     async def request_refund(self, payment_id: UUID, reason: str) -> PaymentDTO:
+        """Persist a refund command; the provider call runs in the worker.
+
+        Keeping the command in the same transaction as the local state change
+        prevents an HTTP rollback from losing the fact that a refund was
+        requested. The worker performs a provider status lookup before Cancel,
+        so a retry after an ambiguous response does not blindly issue a second
+        refund.
+        """
         self._require_transaction()
         if not reason or len(reason) > 64:
             raise ValueError("Refund reason is required")
@@ -517,17 +635,22 @@ class PaymentService:
             raise PaymentStateError("Only confirmed payments can be refunded")
         payment.status = PaymentStatus.REFUNDING
         await self._transition(payment.order_id, OrderTransition.REQUEST_REFUND, "refund_requested")
-        await self.repository.save()
-        try:
-            result = await self.gateway.refund(
-                payment.provider_payment_id, payment.amount_kopecks, reason
+        existing_command = await self.repository.session.scalar(
+            select(Outbox).where(Outbox.deduplication_key == f"payment:refund:{payment.id}")
+        )
+        if existing_command is None:
+            self.repository.session.add(
+                Outbox(
+                    event_type="payment.refund",
+                    deduplication_key=f"payment:refund:{payment.id}",
+                    payload={
+                        "payment_id": str(payment.id),
+                        "provider_payment_id": payment.provider_payment_id,
+                        "amount_minor": payment.amount_kopecks,
+                        "reason": reason,
+                    },
+                )
             )
-        except PaymentGatewayError:
-            # The local operation is already marked REFUNDING. A retry must
-            # reconcile provider state instead of issuing another Cancel.
-            payment.provider_status = "REFUND_UNKNOWN"
-            await self.repository.save()
-            return self._dto(payment)
-        payment.provider_status = result.provider_status
+        payment.provider_status = "REFUND_QUEUED"
         await self.repository.save()
         return self._dto(payment)

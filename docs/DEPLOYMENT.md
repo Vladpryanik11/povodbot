@@ -6,10 +6,14 @@
 3. Выполнить `python -m alembic upgrade head` отдельным release job.
 4. Запустить API, Telegram bot и worker отдельными процессами из одного образа:
    `uvicorn src.api.app:create_app --factory`, `python -m src.bot.main` и
-   `python -m src.workers.main`.
+   `python -m src.workers.main`. В локальном Docker Compose эти три процесса
+   объявлены как `api`, `bot` и `worker`.
 5. Зарегистрировать T‑Bank webhook на публичный HTTPS URL
    `/api/webhooks/tbank/payment-status` и настроить shared webhook secret.
 6. Проверить `/health`, `/ready`, `/metrics`, логи redaction и тестовый платёж.
+   Убедиться, что worker обрабатывает PostgreSQL outbox для Telegram-сообщений
+   и возвратов, а не запускается вторым экземпляром без согласованной политики
+   блокировок.
 
 В production обязательны `ENVIRONMENT=production`, Telegram token, terminal key,
 T‑Bank password, webhook secret и отдельный QR secret. Секреты не выводятся в

@@ -26,14 +26,17 @@ python -m src.workers.main
 ```
 
 On Unix, activate with `source .venv/bin/activate` and copy with `cp .env.example .env`.
-Or run `docker compose up --build` for the API and its local services.
+Or run `docker compose up --build` for the API, Telegram bot, worker and local
+PostgreSQL/Redis services. The migration command remains a separate release step.
 Visit `/health` for liveness and `/ready` for database readiness (503 on failure).
 The minimal admin shell is available at `/admin`; authenticate via
 `POST /api/admin/auth/login`. Campaign delivery rechecks marketing consent and
 blocked-user state immediately before sending. `/stop` in the Telegram bot
 revokes marketing consent.
-Readiness currently probes only PostgreSQL; Redis is the queue boundary for the
-next worker deployment slice. No schema or migration is created automatically.
+Readiness currently probes only PostgreSQL. Campaign Telegram messages and refund
+commands are staged in PostgreSQL transactional outbox rows and sent by the
+worker after commit; Redis remains available for a future horizontally scaled
+scheduler. No schema or migration is created automatically.
 
 ## Checks
 

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.campaigns import Campaign, CampaignDelivery, CampaignStatus, DeliveryStatus
+from src.models.outbox import Outbox
 from src.services.crm.segments import SegmentService
 
 
@@ -16,7 +17,14 @@ class TelegramSender(Protocol):
 
 
 class CampaignDeliveryWorker:
-    def __init__(self, session: AsyncSession, sender: TelegramSender):
+    """Stage campaign messages in the transactional outbox.
+
+    The sender argument remains accepted for compatibility with the first MVP
+    service API, but delivery is intentionally performed by the outbox worker
+    after this transaction commits.
+    """
+
+    def __init__(self, session: AsyncSession, sender: TelegramSender | None = None):
         self.session = session
         self.sender = sender
         self.segments = SegmentService(session)
@@ -46,7 +54,7 @@ class CampaignDeliveryWorker:
             )
         )
         pending_recipients = [r for r in recipients if r.user_id not in completed_ids]
-        delivered = 0
+        queued = 0
         for recipient in pending_recipients[:batch_size]:
             key = f"campaign:{campaign.id}:user:{recipient.user_id}"
             delivery = await self.session.scalar(
@@ -80,17 +88,39 @@ class CampaignDeliveryWorker:
                     attempts=0,
                 )
                 self.session.add(delivery)
-            delivery.attempts += 1
-            try:
-                message_id = await self.sender.send_message(recipient.telegram_id, campaign.body)
-            except Exception as exc:  # provider errors are recorded, transaction stays usable
-                delivery.status = DeliveryStatus.FAILED
-                delivery.error = str(exc)[:512]
-                continue
-            delivery.status = DeliveryStatus.SENT
-            delivery.provider_message_id = message_id
-            delivery.sent_at = datetime.now(UTC)
-            delivered += 1
+                await self.session.flush()
+            outbox = await self.session.scalar(
+                select(Outbox).where(Outbox.deduplication_key == key).with_for_update()
+            )
+            if outbox is not None:
+                if outbox.processed_at is None:
+                    continue
+                # A failed delivery whose retry record was completed can be
+                # staged again without violating the unique deduplication key.
+                outbox.processed_at = None
+                outbox.available_at = datetime.now(UTC)
+                outbox.payload = {
+                    "delivery_id": str(delivery.id),
+                    "campaign_id": str(campaign.id),
+                    "telegram_id": recipient.telegram_id,
+                    "text": campaign.body,
+                }
+            else:
+                self.session.add(
+                    Outbox(
+                        event_type="campaign.telegram_message",
+                        deduplication_key=key,
+                        payload={
+                            "delivery_id": str(delivery.id),
+                            "campaign_id": str(campaign.id),
+                            "telegram_id": recipient.telegram_id,
+                            "text": campaign.body,
+                        },
+                    )
+                )
+            delivery.status = DeliveryStatus.QUEUED
+            delivery.error = None
+            queued += 1
         await self.session.flush()
         processed = await self.session.scalar(
             select(func.count())
@@ -103,4 +133,4 @@ class CampaignDeliveryWorker:
         if not recipients or processed == len(recipients):
             campaign.status = CampaignStatus.COMPLETED
         await self.session.flush()
-        return delivered
+        return queued

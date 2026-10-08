@@ -10,7 +10,9 @@ from src.db.session import get_session_factory
 from src.models.campaigns import Campaign, CampaignStatus
 from src.repositories.reservations import ReservationRepository
 from src.services.campaigns.delivery import CampaignDeliveryWorker
+from src.services.payments.tbank_client import TBankPaymentGateway
 from src.services.reservations.service import ReservationService
+from src.workers.outbox import CampaignOutboxWorker, PaymentRefundOutboxWorker
 
 
 class AiogramSender:
@@ -23,7 +25,9 @@ class AiogramSender:
 
 
 async def run_once(
-    session_factory: async_sessionmaker[AsyncSession], sender: AiogramSender
+    session_factory: async_sessionmaker[AsyncSession],
+    sender: AiogramSender,
+    payment_gateway: TBankPaymentGateway,
 ) -> tuple[int, int]:
     async with session_factory() as session, session.begin():
         released = await ReservationService(ReservationRepository(session)).release_expired(
@@ -39,9 +43,9 @@ async def run_once(
         )
         delivered = 0
         for campaign_id in campaign_ids:
-            delivered += await CampaignDeliveryWorker(session, sender).deliver(
-                campaign_id, batch_size=100
-            )
+            await CampaignDeliveryWorker(session).deliver(campaign_id, batch_size=100)
+    delivered += await CampaignOutboxWorker(session_factory, sender).process_pending(100)
+    await PaymentRefundOutboxWorker(session_factory, payment_gateway).process_pending(100)
     return released, delivered
 
 
@@ -51,12 +55,20 @@ async def run() -> None:
     if not token:
         raise RuntimeError("TELEGRAM_TOKEN is required to run workers")
     bot = Bot(token)
+    settings = get_settings()
+    payment_gateway = TBankPaymentGateway(
+        settings.tbank_terminal_key,
+        settings.tbank_password,
+        api_token=settings.tbank_api_token,
+        base_url=settings.tbank_api_base_url,
+    )
     try:
         while True:
-            await run_once(get_session_factory(), AiogramSender(bot))
+            await run_once(get_session_factory(), AiogramSender(bot), payment_gateway)
             await asyncio.sleep(1)
     finally:
         await bot.session.close()
+        await payment_gateway.aclose()
 
 
 def main() -> None:

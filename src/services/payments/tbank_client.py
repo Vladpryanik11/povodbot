@@ -150,6 +150,25 @@ class TBankPaymentGateway:
             raw=result,
         )
 
+    async def find_by_order(self, order_id: str) -> ProviderPaymentStatus:
+        """Recover a payment when Init succeeded but its response was lost.
+
+        T-Bank documents ``OrderId`` as the merchant-side identifier and exposes
+        ``CheckOrder`` specifically for looking up an operation by that value.
+        The caller must still validate the returned amount and merchant order
+        before attaching the provider identity to a local payment.
+        """
+        if not order_id or len(order_id) > 50:
+            raise ValueError("Order id is invalid for T-Bank")
+        result = await self._post("CheckOrder", {"OrderId": order_id})
+        return ProviderPaymentStatus(
+            provider_payment_id=self._required_string(result, "PaymentId"),
+            provider_status=self._required_string(result, "Status"),
+            amount_minor=int(result["Amount"]) if result.get("Amount") is not None else None,
+            success=result.get("Success") if isinstance(result.get("Success"), bool) else None,
+            raw=result,
+        )
+
     async def cancel(
         self, provider_payment_id: str, amount_minor: int | None = None
     ) -> ProviderOperationResult:

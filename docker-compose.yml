@@ -1,30 +1,49 @@
 name: povod
+x-app-environment: &app-environment
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  DATABASE_URL: postgresql+asyncpg://povod:povod-local-only@postgres:5432/povod
+  REDIS_URL: redis://redis:6379/0
+  TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+  TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
+  TBANK_PASSWORD: ${TBANK_PASSWORD:-}
+  TBANK_API_TOKEN: ${TBANK_API_TOKEN:-}
+  TBANK_API_BASE_URL: ${TBANK_API_BASE_URL:-https://securepay.tinkoff.ru/v2}
+  TBANK_WEBHOOK_SECRET: ${TBANK_WEBHOOK_SECRET:-}
+  TICKET_QR_SECRET: ${TICKET_QR_SECRET:-}
+  PERSONAL_CONSENT_TEXT: ${PERSONAL_CONSENT_TEXT:-}
+  PERSONAL_CONSENT_VERSION: ${PERSONAL_CONSENT_VERSION:-}
+  MARKETING_CONSENT_TEXT: ${MARKETING_CONSENT_TEXT:-}
+  MARKETING_CONSENT_VERSION: ${MARKETING_CONSENT_VERSION:-}
+  RESERVATION_TTL_SECONDS: ${RESERVATION_TTL_SECONDS:-600}
+  DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+  DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
+  DATABASE_TIMEOUT_SECONDS: ${DATABASE_TIMEOUT_SECONDS:-5}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  CAMPAIGN_RATE_LIMIT_PER_SECOND: ${CAMPAIGN_RATE_LIMIT_PER_SECOND:-25}
 services:
   api:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DATABASE_URL: postgresql+asyncpg://povod:povod-local-only@postgres:5432/povod
-      REDIS_URL: redis://redis:6379/0
-      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
-      TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
-      TBANK_PASSWORD: ${TBANK_PASSWORD:-}
-      TBANK_API_TOKEN: ${TBANK_API_TOKEN:-}
-      TBANK_API_BASE_URL: ${TBANK_API_BASE_URL:-https://securepay.tinkoff.ru/v2}
-      TBANK_WEBHOOK_SECRET: ${TBANK_WEBHOOK_SECRET:-}
-      TICKET_QR_SECRET: ${TICKET_QR_SECRET:-}
-      PERSONAL_CONSENT_TEXT: ${PERSONAL_CONSENT_TEXT:-}
-      PERSONAL_CONSENT_VERSION: ${PERSONAL_CONSENT_VERSION:-}
-      MARKETING_CONSENT_TEXT: ${MARKETING_CONSENT_TEXT:-}
-      MARKETING_CONSENT_VERSION: ${MARKETING_CONSENT_VERSION:-}
-      RESERVATION_TTL_SECONDS: ${RESERVATION_TTL_SECONDS:-600}
-      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
-      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
-      DATABASE_TIMEOUT_SECONDS: ${DATABASE_TIMEOUT_SECONDS:-5}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      CAMPAIGN_RATE_LIMIT_PER_SECOND: ${CAMPAIGN_RATE_LIMIT_PER_SECOND:-25}
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  bot:
+    build: .
+    command: ["python", "-m", "src.bot.main"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["python", "-m", "src.workers.main"]
+    environment: *app-environment
     depends_on:
       postgres:
         condition: service_healthy

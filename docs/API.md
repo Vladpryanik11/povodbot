@@ -11,7 +11,9 @@ Telegram-сценарии используют те же сервисы чере
 
 - `/start` — регистрация, атрибуция и обязательные согласия;
 - каталог направлений и мероприятий — `direction:*`, `event:*`;
-- покупка — `buy:*` → `quantity:*`, затем создаются заказ, бронь и T‑Bank Init;
+- покупка — `buy:*` → `quantity:*`; заказ и бронь фиксируются отдельной транзакцией,
+  затем создаётся локальный payment intent и вызывается T‑Bank Init. Потерянный
+  ответ восстанавливается через `CheckOrder` по стабильному `OrderId`;
 - `tickets:mine` — выданные билеты и непрозрачный QR-токен;
 - `/stop` — отзыв рекламного согласия.
 
@@ -26,8 +28,9 @@ Telegram-сценарии используют те же сервисы чере
 - `/api/admin/payments/{id}/reconcile` — сверка с T‑Bank;
 - `/api/admin/payments/{id}/bind-provider` — ручная привязка внешнего ID после
   потерянного ответа Init;
-- `/api/admin/payments/{id}/refund` — запуск возврата с идемпотентным локальным
-  состоянием;
+- `/api/admin/payments/{id}/refund` — постановка возврата в transactional outbox;
+  worker перед `Cancel` проверяет актуальный статус T‑Bank и не повторяет возврат
+  вслепую после неясного ответа;
 - `/api/admin/auth/me` и `/api/admin/auth/logout`;
 - `/metrics` — локальные counters без персональных данных.
 
@@ -35,5 +38,7 @@ Payload платежного webhook проверяется токеном T‑B
 слою. Дубликаты определяются по `EventId`, а если его нет — по паре provider
 payment/status. Redirect пользователя не является подтверждением оплаты.
 Для неясных Init/возвратов предусмотрены состояния
-`reconciliation_required` и `refunding`; повторный внешний вызов не выполняется
-только на основании потерянного HTTP-ответа.
+`reconciliation_required` и `refunding`; provider-вызовы для checkout выполняются
+между зафиксированными локальными транзакциями, а возвраты и Telegram-рассылки
+проходят через transactional outbox после commit. Ручная сверка остаётся обязательной
+для `INIT_UNKNOWN`/`REFUND_UNKNOWN`.

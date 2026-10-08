@@ -11,8 +11,10 @@ from src.models.events import TicketType
 from src.repositories.events import EventRepository
 from src.repositories.orders import OrderRepository
 from src.repositories.payments import PaymentRepository
+from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.events.service import EventService, PublicEventDTO, PublicTicketTypeDTO
-from src.services.orders.service import OrderItemInput, OrderService
+from src.services.orders.service import OrderItemInput, OrderService, PendingOrderDTO
+from src.services.payments.dtos import PaymentCheckoutDTO
 from src.services.payments.ports import PaymentGateway
 from src.services.payments.service import PaymentService
 
@@ -45,13 +47,11 @@ class CheckoutHandler:
             quantity_keyboard(str(ticket.id), maximum),
         )
 
-    async def create_payment(
+    async def create_order(
         self, ticket_type_id: UUID, quantity: int, user_id: UUID
-    ) -> BotResponse:
+    ) -> tuple[PublicEventDTO, PendingOrderDTO]:
         if type(quantity) is not int or not 1 <= quantity <= MAX_TICKETS_PER_ORDER:
             raise ValueError("Invalid ticket quantity")
-        if self.gateway is None:
-            raise RuntimeError("Payment gateway is required to create a payment")
         event, ticket = await self._ticket(ticket_type_id)
         pending = await OrderService(OrderRepository(self.session)).create_pending(
             user_id,
@@ -59,14 +59,18 @@ class CheckoutHandler:
             [OrderItemInput(ticket.id, quantity)],
             datetime.now(UTC),
         )
-        checkout = await PaymentService(PaymentRepository(self.session), self.gateway).start(
-            pending.order_id
+        await AttributionService(self.session).record_funnel_event(
+            user_id, FunnelEventName.CHECKOUT, metadata={"event_id": str(event.id)}
         )
+        return event, pending
+
+    @staticmethod
+    def payment_response(pending: PendingOrderDTO, checkout: PaymentCheckoutDTO) -> BotResponse:
         if checkout.payment_url is None:
             return BotResponse(
                 "Заказ создан, но платёжная ссылка пока недоступна. "
                 "Мы передали заказ на ручную сверку. Обратитесь в поддержку клуба.",
-                events_keyboard([event]),
+                events_keyboard([]),
             )
         rubles, kopecks = divmod(pending.total_kopecks, 100)
         return BotResponse(
@@ -75,3 +79,14 @@ class CheckoutHandler:
             "Завершите оплату по кнопке ниже.",
             payment_keyboard(checkout.payment_url),
         )
+
+    async def create_payment(
+        self, ticket_type_id: UUID, quantity: int, user_id: UUID
+    ) -> BotResponse:
+        if self.gateway is None:
+            raise RuntimeError("Payment gateway is required to create a payment")
+        _, pending = await self.create_order(ticket_type_id, quantity, user_id)
+        checkout = await PaymentService(PaymentRepository(self.session), self.gateway).start(
+            pending.order_id
+        )
+        return self.payment_response(pending, checkout)
