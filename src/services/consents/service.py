@@ -6,6 +6,10 @@ from src.models.identity import Consent, ConsentSource, ConsentStatus, ConsentTy
 from src.repositories.consents import ConsentRepository
 
 
+class StaleConsentRevision(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class ConsentDTO:
     id: UUID
@@ -15,6 +19,7 @@ class ConsentDTO:
     text_version: str | None
     source: ConsentSource
     created_at: datetime
+    sequence: int
 
     @classmethod
     def from_model(cls, event: Consent) -> "ConsentDTO":
@@ -26,6 +31,7 @@ class ConsentDTO:
             event.text_version,
             ConsentSource(event.source),
             event.created_at,
+            event.sequence,
         )
 
 
@@ -39,10 +45,17 @@ class ConsentService:
         consent_type: ConsentType,
         text_version: str,
         source: ConsentSource,
+        *,
+        expected_sequence: int | None = None,
     ) -> ConsentDTO:
         if not text_version.strip() or len(text_version) > 128:
             raise ValueError("Consent text version must contain 1 to 128 characters")
         await self.repository.lock_user(user_id)
+        if expected_sequence is not None:
+            latest = await self.repository.latest(user_id, consent_type)
+            current_sequence = latest.sequence if latest else 0
+            if expected_sequence != current_sequence:
+                raise StaleConsentRevision("Consent grant revision is stale")
         return ConsentDTO.from_model(
             await self.repository.append(
                 user_id, consent_type, ConsentStatus.GRANTED, text_version, source

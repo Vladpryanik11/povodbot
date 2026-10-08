@@ -7,6 +7,7 @@ def main_menu(
     directions: list[DirectionDTO],
     marketing_active: bool,
     marketing_version: str,
+    marketing_sequence: int,
 ) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=d.name, callback_data=f"direction:{d.id}")] for d in directions
@@ -19,7 +20,7 @@ def main_menu(
                 InlineKeyboardButton(
                     text="Отписаться от рекламы" if marketing_active else "Настроить рекламу",
                     callback_data=f"consent:marketing:{'revoke' if marketing_active else 'show'}:"
-                    f"{marketing_version}",
+                    f"{marketing_version}:{marketing_sequence}",
                 )
             ],
         ]
@@ -27,11 +28,11 @@ def main_menu(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def consent_prompt(consent_type: str, version: str) -> InlineKeyboardMarkup:
+def consent_prompt(consent_type: str, version: str, sequence: int) -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton(
-                text="Согласен", callback_data=f"consent:{consent_type}:grant:{version}"
+                text="Согласен", callback_data=f"consent:{consent_type}:grant:{version}:{sequence}"
             )
         ]
     ]
@@ -39,7 +40,7 @@ def consent_prompt(consent_type: str, version: str) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="Без рекламы", callback_data=f"consent:marketing:skip:{version}"
+                    text="Без рекламы", callback_data=f"consent:marketing:skip:{version}:{sequence}"
                 )
             ]
         )

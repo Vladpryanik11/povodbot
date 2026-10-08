@@ -52,3 +52,10 @@ async def test_invalid_telegram_id_rejected(db_session, telegram_id):
         await UserService(UserRepository(db_session)).upsert_telegram_user(
             telegram_id, None, None, None, None
         )
+
+
+async def test_service_keeps_start_parameter_length_validation(db_session):
+    with pytest.raises(ValueError, match="64"):
+        await UserService(UserRepository(db_session)).upsert_telegram_user(
+            1, None, None, None, "x" * 65
+        )

@@ -32,6 +32,12 @@ def create_router(
     async def start(message: Message, command: CommandObject) -> None:
         if message.from_user is None:
             return
+        if command.args is not None and len(command.args) > 64:
+            await message.answer(
+                "Параметр /start слишком длинный: максимум 64 символа. "
+                "Отправьте /start без параметра или воспользуйтесь корректной ссылкой."
+            )
+            return
         factory = session_factory or get_session_factory()
         async with factory() as session, session.begin():
             response = await handler(session).start(message.from_user, command.args)
