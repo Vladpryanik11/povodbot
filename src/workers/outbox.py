@@ -8,10 +8,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.models.campaigns import CampaignDelivery, DeliveryStatus
+from src.models.campaigns import Campaign, CampaignDelivery, CampaignStatus, DeliveryStatus
 from src.models.outbox import Outbox
 from src.models.payments import Payment
 from src.repositories.payments import PaymentRepository
+from src.services.crm.segments import SegmentService
 from src.services.payments.dtos import PaymentWebhookDTO
 from src.services.payments.ports import PaymentGateway, PaymentGatewayError
 from src.services.payments.service import (
@@ -74,34 +75,90 @@ class CampaignOutboxWorker(_OutboxWorker):
             raise ValueError("Outbox delivery id is invalid")
         return UUID(value)
 
+    async def _is_eligible_before_send(self, job: ClaimedOutbox) -> bool:
+        async with self.session_factory() as session, session.begin():
+            delivery = await session.scalar(
+                select(CampaignDelivery).where(CampaignDelivery.id == self._delivery_id(job))
+            )
+            if delivery is None:
+                return False
+            campaign = await session.get(Campaign, delivery.campaign_id)
+            if campaign is None or CampaignStatus(campaign.status) == CampaignStatus.CANCELLED:
+                return False
+            return await SegmentService(session).is_eligible(delivery.user_id, campaign.audience)
+
+    @staticmethod
+    async def _maybe_complete_campaign(session: AsyncSession, campaign: Campaign) -> None:
+        if CampaignStatus(campaign.status) not in {
+            CampaignStatus.SCHEDULED,
+            CampaignStatus.RUNNING,
+        }:
+            return
+        recipients = await SegmentService(session).resolve(campaign.audience)
+        if not recipients:
+            campaign.status = CampaignStatus.COMPLETED
+            return
+        terminal_ids = set(
+            await session.scalars(
+                select(CampaignDelivery.user_id).where(
+                    CampaignDelivery.campaign_id == campaign.id,
+                    CampaignDelivery.status.in_([DeliveryStatus.SENT, DeliveryStatus.BLOCKED]),
+                )
+            )
+        )
+        if all(recipient.user_id in terminal_ids for recipient in recipients):
+            campaign.status = CampaignStatus.COMPLETED
+
     async def _finish(
         self,
         job: ClaimedOutbox,
         *,
         message_id: str | None = None,
         error: str | None = None,
+        blocked: bool = False,
     ) -> None:
         async with self.session_factory() as session, session.begin():
+            delivery_id = self._delivery_id(job)
+            delivery_snapshot = await session.scalar(
+                select(CampaignDelivery).where(CampaignDelivery.id == delivery_id)
+            )
+            campaign = (
+                await session.scalar(
+                    select(Campaign)
+                    .where(Campaign.id == delivery_snapshot.campaign_id)
+                    .with_for_update()
+                )
+                if delivery_snapshot is not None
+                else None
+            )
             event = await session.scalar(
                 select(Outbox).where(Outbox.id == job.id).with_for_update()
             )
             if event is None or event.processed_at is not None:
                 return
             delivery = await session.scalar(
-                select(CampaignDelivery)
-                .where(CampaignDelivery.id == self._delivery_id(job))
-                .with_for_update()
+                select(CampaignDelivery).where(CampaignDelivery.id == delivery_id).with_for_update()
             )
             if delivery is None:
                 event.processed_at = datetime.now(UTC)
                 return
             now = datetime.now(UTC)
+            if blocked:
+                delivery.status = DeliveryStatus.BLOCKED
+                delivery.error = "recipient_not_eligible"
+                event.processed_at = now
+                event.available_at = now
+                if campaign is not None:
+                    await self._maybe_complete_campaign(session, campaign)
+                return
             if error is None:
                 delivery.status = DeliveryStatus.SENT
                 delivery.provider_message_id = message_id
                 delivery.sent_at = now
                 event.processed_at = now
                 event.available_at = now
+                if campaign is not None:
+                    await self._maybe_complete_campaign(session, campaign)
                 return
             delivery.status = DeliveryStatus.FAILED
             delivery.error = error[:512]
@@ -111,6 +168,8 @@ class CampaignOutboxWorker(_OutboxWorker):
                 delivery.status = DeliveryStatus.BLOCKED
                 event.processed_at = now
                 event.available_at = now
+                if campaign is not None:
+                    await self._maybe_complete_campaign(session, campaign)
             else:
                 event.available_at = now + timedelta(seconds=min(job.attempts * 30, 300))
 
@@ -123,6 +182,9 @@ class CampaignOutboxWorker(_OutboxWorker):
             if job is None:
                 break
             try:
+                if not await self._is_eligible_before_send(job):
+                    await self._finish(job, blocked=True)
+                    continue
                 telegram_id = job.payload["telegram_id"]
                 text = job.payload["text"]
                 if not isinstance(telegram_id, int) or not isinstance(text, str):

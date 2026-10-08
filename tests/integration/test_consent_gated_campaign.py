@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import select
 
-from src.models.campaigns import Campaign, CampaignStatus
+from src.models.campaigns import Campaign, CampaignDelivery, CampaignStatus, DeliveryStatus
 from src.models.identity import ConsentSource, ConsentType
+from src.models.outbox import Outbox
 from src.repositories.admin import AdminRepository
 from src.repositories.consents import ConsentRepository
 from src.repositories.users import UserRepository
@@ -137,3 +139,74 @@ async def test_campaign_delivery_continues_with_later_batches(pg_factory):
     assert await CampaignOutboxWorker(pg_factory, sender).process_pending() == 1
     assert len(sender.calls) == 3
     assert set(sender.calls) == {203, 204, 205}
+
+
+async def test_campaign_outbox_rechecks_consent_before_telegram_send(pg_factory):
+    async with pg_factory() as session, session.begin():
+        user = await UserService(UserRepository(session)).upsert_telegram_user(
+            206, "Revoked", None, None, None
+        )
+        await ConsentService(ConsentRepository(session)).record(
+            user.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM
+        )
+        admin = await AdminAuthService(AdminRepository(session)).create_user(
+            "revoked-campaign-admin", "password-123"
+        )
+        campaign = await CampaignService(session).create_draft(
+            admin.id, "Revoked", "Hello", {"telegram_ids": [206]}
+        )
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        campaign_model.status = CampaignStatus.SCHEDULED
+        assert await CampaignDeliveryWorker(session).deliver(campaign.id) == 1
+
+    async with pg_factory() as session, session.begin():
+        await ConsentService(ConsentRepository(session)).revoke(
+            user.id, ConsentType.MARKETING, ConsentSource.TELEGRAM
+        )
+
+    sender = Sender([])
+    assert await CampaignOutboxWorker(pg_factory, sender).process_pending() == 0
+    assert sender.calls == []
+
+    async with pg_factory() as session, session.begin():
+        delivery = await session.scalar(
+            select(CampaignDelivery).where(CampaignDelivery.campaign_id == campaign.id)
+        )
+        outbox = await session.scalar(
+            select(Outbox).where(
+                Outbox.deduplication_key == f"campaign:{campaign.id}:user:{user.id}"
+            )
+        )
+        assert delivery is not None
+        assert DeliveryStatus(delivery.status) == DeliveryStatus.BLOCKED
+        assert outbox is not None
+        assert outbox.processed_at is not None
+
+
+async def test_campaign_completes_after_last_outbox_delivery(pg_factory):
+    async with pg_factory() as session, session.begin():
+        user = await UserService(UserRepository(session)).upsert_telegram_user(
+            207, "Last", None, None, None
+        )
+        await ConsentService(ConsentRepository(session)).record(
+            user.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM
+        )
+        admin = await AdminAuthService(AdminRepository(session)).create_user(
+            "completed-campaign-admin", "password-123"
+        )
+        campaign = await CampaignService(session).create_draft(
+            admin.id, "Last", "Hello", {"telegram_ids": [207]}
+        )
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        campaign_model.status = CampaignStatus.SCHEDULED
+        assert await CampaignDeliveryWorker(session).deliver(campaign.id) == 1
+
+    sender = Sender([])
+    assert await CampaignOutboxWorker(pg_factory, sender).process_pending() == 1
+
+    async with pg_factory() as session, session.begin():
+        campaign_model = await session.get(Campaign, campaign.id)
+        assert campaign_model is not None
+        assert CampaignStatus(campaign_model.status) == CampaignStatus.COMPLETED
