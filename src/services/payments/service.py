@@ -126,7 +126,7 @@ class PaymentService:
     def __init__(
         self,
         repository: PaymentRepository,
-        gateway: PaymentGateway,
+        gateway: PaymentGateway | None,
         clock: Clock | None = None,
     ) -> None:
         self.repository = repository
@@ -164,7 +164,10 @@ class PaymentService:
 
     @staticmethod
     def _validate_provider_snapshot(payment: Payment, provider: ProviderPaymentStatus) -> None:
-        if provider.provider_payment_id != payment.provider_payment_id:
+        if (
+            payment.provider_payment_id is not None
+            and provider.provider_payment_id != payment.provider_payment_id
+        ):
             raise PaymentStateError("Provider payment identity does not match")
         if provider.amount_minor is not None and provider.amount_minor != payment.amount_kopecks:
             raise PaymentStateError("Provider amount does not match the payment")
@@ -398,14 +401,17 @@ class PaymentService:
         intent = await self.prepare(order_id)
         if intent.request is None:
             return intent.checkout
+        gateway = self.gateway
+        if gateway is None:
+            raise RuntimeError("Payment gateway is required to start payment")
 
         try:
-            response = await self.gateway.create_payment(intent.request)
+            response = await gateway.create_payment(intent.request)
         except PaymentGatewayError:
             # The provider may have accepted Init before the response was
             # lost. Persist an unresolved state and never issue Init twice
             # for the same local order without reconciliation.
-            finder = getattr(self.gateway, "find_by_order", None)
+            finder = getattr(gateway, "find_by_order", None)
             if callable(finder):
                 try:
                     recovered = await finder(str(intent.order_id))
@@ -709,7 +715,10 @@ class PaymentService:
             raise LookupError("Payment not found")
         if not payment.provider_payment_id:
             raise PaymentStateError("Payment has no provider identity")
-        provider_status = await self.gateway.get_status(payment.provider_payment_id)
+        gateway = self.gateway
+        if gateway is None:
+            raise RuntimeError("Payment gateway is required to reconcile payment")
+        provider_status = await gateway.get_status(payment.provider_payment_id)
         await self.apply_webhook(
             PaymentWebhookDTO(
                 provider_payment_id=provider_status.provider_payment_id,
@@ -728,18 +737,53 @@ class PaymentService:
         provider_payment_id = provider_payment_id.strip()
         if not provider_payment_id or len(provider_payment_id) > 64:
             raise PaymentStateError("Provider payment id is invalid")
+        payment = await self.repository.by_id(payment_id)
+        if payment is None:
+            raise LookupError("Payment not found")
+        if PaymentStatus(payment.status) != PaymentStatus.RECONCILIATION_REQUIRED:
+            raise PaymentStateError("Only unresolved payments can be bound")
+        gateway = self.gateway
+        if gateway is None:
+            raise RuntimeError("Payment gateway is required to bind payment")
+        provider = await gateway.get_status(provider_payment_id)
+        return await self.bind_provider_snapshot(
+            payment_id,
+            provider,
+            expected_provider_payment_id=provider_payment_id,
+        )
+
+    async def bind_provider_snapshot(
+        self,
+        payment_id: UUID,
+        provider: ProviderPaymentStatus,
+        *,
+        expected_provider_payment_id: str | None = None,
+    ) -> PaymentDTO:
+        self._require_transaction()
+        provider_payment_id = provider.provider_payment_id.strip()
+        if not provider_payment_id or len(provider_payment_id) > 64:
+            raise PaymentStateError("Provider payment id is invalid")
+        if (
+            expected_provider_payment_id is not None
+            and provider_payment_id != expected_provider_payment_id
+        ):
+            raise PaymentStateError("Provider payment identity does not match")
         payment = await self.repository.get_for_update(payment_id)
         if PaymentStatus(payment.status) != PaymentStatus.RECONCILIATION_REQUIRED:
             raise PaymentStateError("Only unresolved payments can be bound")
-        other = await self.repository.by_provider_payment_for_update(provider_payment_id)
+        if (
+            payment.provider_payment_id is not None
+            and payment.provider_payment_id != provider_payment_id
+        ):
+            raise PaymentStateError("Provider payment id is already linked")
+        other = await self.repository.by_provider_payment(provider_payment_id)
         if other is not None and other.id != payment.id:
             raise PaymentStateError("Provider payment id is already linked")
-        provider = await self.gateway.get_status(provider_payment_id)
-        payment.provider_payment_id = provider_payment_id
         self._validate_provider_snapshot(payment, provider)
         payment.provider_payment_id = provider_payment_id
         payment.provider_status = provider.provider_status
         payment.status = PaymentStatus.PROCESSING
+        payment.init_lease_until = None
         await self.repository.save()
         return self._dto(payment)
 

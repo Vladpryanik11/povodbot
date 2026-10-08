@@ -8,12 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.admin.dependencies import require_permission
 from src.core.config import get_settings
-from src.db.session import get_async_session
+from src.db.session import get_async_session, get_session_factory
 from src.models.payments import Payment
 from src.repositories.admin import AdminRepository
 from src.repositories.payments import PaymentRepository
 from src.services.admin.permissions import AdminActor, Permission
 from src.services.audit.service import AuditService
+from src.services.payments.admin import PaymentAdminService
 from src.services.payments.ports import PaymentGatewayError
 from src.services.payments.service import PaymentService, PaymentStateError
 from src.services.payments.tbank_client import TBankPaymentGateway
@@ -54,6 +55,11 @@ async def _payment_or_404(session: AsyncSession, payment_id: UUID) -> Payment:
     return payment
 
 
+async def _record_payment_audit(actor_id: UUID, action: str, payment_id: UUID) -> None:
+    async with get_session_factory()() as session, session.begin():
+        await AuditService(AdminRepository(session)).record(actor_id, action, "payment", payment_id)
+
+
 @router.get("/{payment_id}")
 async def get_payment(
     payment_id: UUID,
@@ -79,16 +85,14 @@ async def get_payment(
 async def reconcile_payment(
     payment_id: UUID,
     actor: Annotated[AdminActor, Depends(require_payment_admin)],
-    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> object:
-    await _payment_or_404(session, payment_id)
     gateway = _gateway()
     try:
-        result = await PaymentService(PaymentRepository(session), gateway).reconcile(payment_id)
-        await AuditService(AdminRepository(session)).record(
-            actor.id, "payment.reconcile", "payment", payment_id
-        )
+        result = await PaymentAdminService(get_session_factory(), gateway).reconcile(payment_id)
+        await _record_payment_audit(actor.id, "payment.reconcile", payment_id)
         return result
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Payment not found") from exc
     except PaymentStateError as exc:
         raise HTTPException(status_code=409, detail="Payment cannot be reconciled") from exc
     except PaymentGatewayError as exc:
@@ -102,18 +106,16 @@ async def bind_provider_payment(
     payment_id: UUID,
     payload: ProviderBindingInput,
     actor: Annotated[AdminActor, Depends(require_payment_admin)],
-    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> object:
-    await _payment_or_404(session, payment_id)
     gateway = _gateway()
     try:
-        result = await PaymentService(PaymentRepository(session), gateway).bind_provider_payment(
+        result = await PaymentAdminService(get_session_factory(), gateway).bind_provider_payment(
             payment_id, payload.provider_payment_id
         )
-        await AuditService(AdminRepository(session)).record(
-            actor.id, "payment.bind_provider", "payment", payment_id
-        )
+        await _record_payment_audit(actor.id, "payment.bind_provider", payment_id)
         return result
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Payment not found") from exc
     except PaymentStateError as exc:
         raise HTTPException(status_code=409, detail="Provider payment cannot be bound") from exc
     finally:
@@ -128,9 +130,8 @@ async def refund_payment(
     session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> object:
     await _payment_or_404(session, payment_id)
-    gateway = _gateway()
     try:
-        result = await PaymentService(PaymentRepository(session), gateway).request_refund(
+        result = await PaymentService(PaymentRepository(session), None).request_refund(
             payment_id, payload.reason
         )
         await AuditService(AdminRepository(session)).record(
@@ -139,9 +140,5 @@ async def refund_payment(
         return result
     except PaymentStateError as exc:
         raise HTTPException(status_code=409, detail="Payment cannot be refunded") from exc
-    except PaymentGatewayError as exc:
-        raise HTTPException(status_code=502, detail="Payment provider is unavailable") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid refund request") from exc
-    finally:
-        await gateway.aclose()
