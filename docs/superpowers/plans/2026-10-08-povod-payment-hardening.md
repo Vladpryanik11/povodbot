@@ -88,6 +88,7 @@
 **Files:**
 - Modify: `src/repositories/payments.py`
 - Modify: `src/services/payments/service.py`
+- Modify: `src/workers/outbox.py`
 - Modify: `tests/integration/test_payment_hardening.py`
 - Modify: `tests/integration/test_tbank_webhook_idempotency.py`
 
@@ -109,7 +110,7 @@
 
   Add a non-locking provider-payment lookup and `insert_payment_event_if_absent()` to `PaymentRepository`. Use PostgreSQL `ON CONFLICT DO NOTHING` for the unknown-payment branch and return the existing event as a duplicate when the insert loses the race.
 
-  Rework `apply_webhook()` to discover the order from the unlocked payment/event payload, lock the event row first, then the order, then the payment. Rework `prepare()` callers as needed so all payment/order transition paths use the same event → order → payment order. Keep status validation, safe payload redaction, and existing order-state transitions unchanged.
+  Rework `apply_webhook()` to discover the order from the unlocked payment/event payload, lock the event row first, then the order, then the payment. Rework `prepare()`, legacy reconciliation, and refund-outbox callers as needed so all payment/order transition paths use the same event → order → payment order. Keep status validation, safe payload redaction, and existing order-state transitions unchanged.
 
 - [ ] **Step 4: Run focused and regression tests**
 
