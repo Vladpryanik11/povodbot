@@ -1,0 +1,1 @@
+"""Повод single-club application."""

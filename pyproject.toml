@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "povod"
+version = "0.1.0"
+description = "Single-club Повод modular monolith"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.135.1",
+  "uvicorn==0.41.0",
+  "SQLAlchemy==2.0.48",
+  "asyncpg==0.31.0",
+  "pydantic-settings==2.15.0",
+  "structlog==25.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+  "pytest-asyncio==1.3.0",
+  "httpx==0.28.1",
+  "aiosqlite==0.22.1",
+  "ruff==0.15.6",
+  "mypy==1.19.1",
+  "poethepoet==0.37.0",
+  "asyncpg-stubs==0.31.3",
+]
+
+[tool.poe.tasks]
+test = "python -m pytest -q"
+format = "python -m ruff format ."
+format-check = "python -m ruff format --check ."
+lint = "python -m ruff check ."
+typecheck = "python -m mypy src"
+check = ["test", "format-check", "lint", "typecheck"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+strict = true
+plugins = ["pydantic.mypy"]
+
+# Run: python -m pytest -q; python -m ruff format --check .;
+# python -m ruff check .; python -m mypy src.
