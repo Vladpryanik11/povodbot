@@ -100,7 +100,7 @@ TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task4_test
 Результаты:
 
 ```text
-pytest -q                         259 passed in 180.28s
+pytest -q                         259 passed in 179.79s
 ruff format --check .             passed; 138 files already formatted
 ruff check .                      passed
 mypy src                          passed; 91 source files

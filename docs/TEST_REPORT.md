@@ -19,7 +19,7 @@ Focused результаты перед финальным полным прог
 
 Финальный continuation suite и статические gates завершены:
 
-- `pytest -q` — **259 passed** (`180.28s`) на disposable PostgreSQL
+- `pytest -q` — **259 passed** (`179.79s`) на disposable PostgreSQL
   `127.0.0.1:55432/povod_task4_test`.
 - `ruff format --check .` — passed; 138 files already formatted.
 - `ruff check .` — passed.

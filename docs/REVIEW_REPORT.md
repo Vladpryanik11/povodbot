@@ -118,7 +118,7 @@ Critical/Important findings по текущему срезу не осталос
 ## Фактические проверки continuation `ea98bdd..HEAD`
 
 ```text
-pytest -q                         259 passed in 180.28s
+pytest -q                         259 passed in 179.79s
 ruff format --check .             passed; 138 files already formatted
 ruff check .                      passed
 mypy src                          passed; 91 source files
