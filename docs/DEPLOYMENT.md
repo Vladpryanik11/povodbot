@@ -4,7 +4,9 @@
 2. Передать секреты через secret manager или environment runtime; `.env` не
    коммитится.
 3. Выполнить `python -m alembic upgrade head` отдельным release job.
-4. Запустить API, Telegram bot и worker отдельными процессами из одного образа.
+4. Запустить API, Telegram bot и worker отдельными процессами из одного образа:
+   `uvicorn src.api.app:create_app --factory`, `python -m src.bot.main` и
+   `python -m src.workers.main`.
 5. Зарегистрировать T‑Bank webhook на публичный HTTPS URL
    `/api/webhooks/tbank/payment-status` и настроить shared webhook secret.
 6. Проверить `/health`, `/ready`, `/metrics`, логи redaction и тестовый платёж.

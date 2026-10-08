@@ -15,8 +15,10 @@
   onboarding, checkout reservation/payment link and user ticket QR view.
 - `python -m ruff format --check .` — passed.
 - `python -m ruff check .` — passed.
-- `python -m mypy src` — passed, 86 source files.
+- `python -m mypy src` — passed, 88 source files.
 - `python -m compileall -q src tests scripts` — passed.
+- `python -c "import src.bot.main, src.workers.main"` — runtime entrypoints
+  import without network calls.
 - `python -m alembic upgrade head` — passed on disposable PostgreSQL.
 - `python -m alembic check` — `No new upgrade operations detected.`
 - `git diff --check` — passed; CRLF warnings Git не являются ошибками содержимого.

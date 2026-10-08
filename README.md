@@ -20,6 +20,9 @@ Copy-Item .env.example .env
 docker compose up -d postgres redis
 python -m alembic upgrade head
 uvicorn src.api.app:create_app --factory --reload
+# In separate terminals, after migrations:
+python -m src.bot.main
+python -m src.workers.main
 ```
 
 On Unix, activate with `source .venv/bin/activate` and copy with `cp .env.example .env`.
