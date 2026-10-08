@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import (
@@ -16,6 +17,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base, Timestamps, UUIDPrimaryKey, utcnow
+
+if TYPE_CHECKING:
+    from src.models.payments import Payment
 
 
 class OrderStatus(StrEnum):
@@ -76,6 +80,9 @@ class Order(UUIDPrimaryKey, Timestamps, Base):
         order_by="OrderEvent.sequence",
         lazy="selectin",
     )
+    payment: Mapped["Payment | None"] = relationship(
+        back_populates="order", uselist=False, cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class OrderItem(UUIDPrimaryKey, Base):
@@ -121,8 +128,8 @@ class ReservationItem(UUIDPrimaryKey, Base):
         CheckConstraint("quantity > 0", name="quantity_positive"),
     )
     reservation_id: Mapped[UUID] = mapped_column(ForeignKey("reservations.id", ondelete="RESTRICT"))
-    # The immutable order-item snapshot is retained even after reservation history
-    # is archived; service code is the owner of this append-only association.
+    # Migration 0003 uses a validating trigger instead of an FK: PostgreSQL
+    # checks TRUNCATE references before the immutable history trigger can run.
     order_item_id: Mapped[UUID] = mapped_column()
     quantity: Mapped[int] = mapped_column(Integer)
     reservation: Mapped[Reservation] = relationship(back_populates="items")

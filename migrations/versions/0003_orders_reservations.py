@@ -127,6 +127,37 @@ def upgrade() -> None:
         BEFORE UPDATE OR DELETE OR TRUNCATE ON order_items
         FOR EACH STATEMENT EXECUTE FUNCTION reject_commerce_mutation()
     """)
+    op.execute("""
+        CREATE FUNCTION validate_reservation_item_reference() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE
+            reservation_order UUID;
+            reservation_event UUID;
+            item_order UUID;
+            item_event UUID;
+        BEGIN
+            SELECT r.order_id, r.event_id
+              INTO reservation_order, reservation_event
+              FROM reservations r WHERE r.id = NEW.reservation_id;
+            SELECT oi.order_id, o.event_id
+              INTO item_order, item_event
+              FROM order_items oi
+              JOIN orders o ON o.id = oi.order_id
+             WHERE oi.id = NEW.order_item_id;
+            IF reservation_order IS NULL OR item_order IS NULL
+               OR reservation_order <> item_order
+               OR reservation_event <> item_event THEN
+                RAISE EXCEPTION 'Reservation item must reference its own order item'
+                    USING ERRCODE = '23503';
+            END IF;
+            RETURN NEW;
+        END;
+        $$
+    """)
+    op.execute("""
+        CREATE TRIGGER reservation_items_validate_reference
+        BEFORE INSERT OR UPDATE ON reservation_items
+        FOR EACH ROW EXECUTE FUNCTION validate_reservation_item_reference()
+    """)
 
 
 def downgrade() -> None:
@@ -139,4 +170,5 @@ def downgrade() -> None:
     op.drop_table("order_items")
     op.drop_index("ix_orders_event_status", table_name="orders")
     op.drop_table("orders")
+    op.execute("DROP FUNCTION validate_reservation_item_reference()")
     op.execute("DROP FUNCTION reject_commerce_mutation()")

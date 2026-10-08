@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal, overload
 from uuid import UUID
 
 from sqlalchemy import select
@@ -18,15 +19,25 @@ class OrderRepository:
             raise LookupError("Order not found")
         return event_id
 
-    async def get_for_update(self, order_id: UUID) -> Order:
+    @overload
+    async def get_for_update(
+        self, order_id: UUID, *, skip_locked: Literal[False] = False
+    ) -> Order: ...
+
+    @overload
+    async def get_for_update(
+        self, order_id: UUID, *, skip_locked: Literal[True]
+    ) -> Order | None: ...
+
+    async def get_for_update(self, order_id: UUID, *, skip_locked: bool = False) -> Order | None:
         order = await self.session.scalar(
             select(Order)
             .where(Order.id == order_id)
             .options(selectinload(Order.items), selectinload(Order.reservation))
-            .with_for_update()
+            .with_for_update(skip_locked=skip_locked)
             .execution_options(populate_existing=True)
         )
-        if order is None:
+        if order is None and not skip_locked:
             raise LookupError("Order not found")
         return order
 

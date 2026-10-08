@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import select
+
 from src.models.commerce import (
     OrderTransition,
+    Reservation,
     ReservationStatus,
 )
 from src.repositories.events import EventRepository
@@ -85,11 +88,19 @@ class ReservationService:
             )
             if event is None:
                 continue
-            due = await self.repository.due_for_event(
-                event_id, now_utc, limit - released, skip_locked=True
-            )
-            for reservation in due:
-                order = await order_service.repository.get_for_update(reservation.order_id)
+            due_ids = await self.repository.due_ids_for_event(event_id, now_utc, limit - released)
+            for reservation_id in due_ids:
+                order_id = await self.repository.session.scalar(
+                    select(Reservation.order_id).where(Reservation.id == reservation_id)
+                )
+                if order_id is None:
+                    continue
+                order = await order_service.repository.get_for_update(order_id, skip_locked=True)
+                if order is None:
+                    continue
+                reservation = await self.repository.get_for_update(reservation_id, skip_locked=True)
+                if reservation is None:
+                    continue
                 if (
                     order.status == "pending_payment"
                     and reservation.status == ReservationStatus.ACTIVE

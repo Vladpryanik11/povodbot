@@ -304,10 +304,18 @@ class OrderService:
         now: datetime,
         reservation_repository: ReservationRepository,
     ) -> int:
-        due = await reservation_repository.due_for_event(event_id, now, 1_000_000)
+        due_ids = await reservation_repository.due_ids_for_event(event_id, now, 1_000_000)
         released = 0
-        for reservation in due:
-            order = await self.repository.get_for_update(reservation.order_id)
+        for reservation_id in due_ids:
+            order_id = await self.repository.session.scalar(
+                select(Reservation.order_id).where(Reservation.id == reservation_id)
+            )
+            if order_id is None:
+                continue
+            order = await self.repository.get_for_update(order_id)
+            reservation = await reservation_repository.get_for_update(reservation_id)
+            if reservation is None:
+                continue
             if OrderStatus(order.status) == OrderStatus.PENDING_PAYMENT:
                 self._apply_transition_locked(
                     order,

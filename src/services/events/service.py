@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from src.models.base import utcnow
 from src.models.events import Event, EventStatus, TicketType
 from src.repositories.events import EventRepository
+from src.repositories.reservations import ReservationRepository
 
 
 @dataclass(frozen=True)
@@ -263,6 +264,19 @@ class EventService:
         if not direction.active or not any(t.active for t in command.ticket_types):
             raise ValueError("Publication requires an active direction and ticket type")
 
+    async def _capacity_edit_requirements(
+        self, event_id: UUID, command: CreateEventCommand
+    ) -> None:
+        occupied = await ReservationRepository(self.repository.session).occupied_by_ticket(event_id)
+        total_occupied = sum(occupied.values())
+        if command.capacity < total_occupied:
+            raise ValueError("Capacity cannot be lower than already occupied seats")
+        by_id = {ticket.id: ticket for ticket in command.ticket_types if ticket.id is not None}
+        for ticket_id, quantity in occupied.items():
+            candidate = by_id.get(ticket_id)
+            if candidate is None or not candidate.active or candidate.limit < quantity:
+                raise ValueError("Ticket limit cannot be lower than already occupied seats")
+
     async def update(self, event_id: UUID, command: UpdateEventCommand) -> EventDTO:
         event = await self.repository.get_for_update(event_id)
         if event.status in {EventStatus.CANCELLED, EventStatus.COMPLETED}:
@@ -287,12 +301,13 @@ class EventService:
         await self.repository.direction(candidate.direction_id)
         if status == EventStatus.COMPLETED and candidate.ends_at > utcnow():
             raise ValueError("Cannot complete an event before it ends")
-        if status == EventStatus.PUBLISHED and event.status != EventStatus.PUBLISHED:
+        if status == EventStatus.PUBLISHED:
             await self._publication_requirements(candidate)
         by_id = {t.id: t for t in event.ticket_types}
         ids = [t.id for t in candidate.ticket_types if t.id is not None]
         if len(set(ids)) != len(ids) or any(i not in by_id for i in ids):
             raise ValueError("Duplicate or foreign ticket type ID")
+        await self._capacity_edit_requirements(event.id, candidate)
         # Validate the complete candidate before mutating any attached ORM state.
         for name in values:
             if name != "ticket_types":

@@ -90,7 +90,7 @@ async def test_invalid_carts_create_nothing(db_session, kind):
         other = await service(db_session).create_draft(draft())
         items = [ReservationItem(other.ticket_types[0].id, 1)]
     elif kind == "inactive":
-        await service(db_session).update(event.id, UpdateEventCommand(ticket_types=[]))
+        await service(db_session).update(event.id, UpdateEventCommand(status=EventStatus.CANCELLED))
     elif kind == "naive":
         now = NOW.replace(tzinfo=None)
     else:

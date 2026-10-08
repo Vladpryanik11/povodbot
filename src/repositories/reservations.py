@@ -50,6 +50,32 @@ class ReservationRepository:
         )
         return list(await self.session.scalars(query))
 
+    async def due_ids_for_event(self, event_id: UUID, now: datetime, limit: int) -> list[UUID]:
+        result = await self.session.scalars(
+            select(Reservation.id)
+            .where(
+                Reservation.event_id == event_id,
+                Reservation.status == ReservationStatus.ACTIVE,
+                Reservation.expires_at <= now,
+            )
+            .order_by(Reservation.expires_at, Reservation.id)
+            .limit(limit)
+        )
+        return list(result)
+
+    async def get_for_update(
+        self, reservation_id: UUID, *, skip_locked: bool = False
+    ) -> Reservation | None:
+        reservation = await self.session.scalar(
+            select(Reservation)
+            .where(Reservation.id == reservation_id)
+            .with_for_update(skip_locked=skip_locked)
+            .execution_options(populate_existing=True)
+        )
+        if reservation is None and not skip_locked:
+            raise LookupError("Reservation not found")
+        return reservation
+
     async def occupied_by_ticket(self, event_id: UUID) -> dict[UUID, int]:
         result = await self.session.execute(
             select(OrderItem.ticket_type_id, func.sum(OrderItem.quantity))
