@@ -3,13 +3,16 @@ from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.bot.handlers.events import EventHandler
 from src.bot.handlers.start import ConsentTexts, StartHandler
 from src.db.session import get_session_factory
 from src.repositories.consents import ConsentRepository
 from src.repositories.directions import DirectionRepository
+from src.repositories.events import EventRepository
 from src.repositories.users import UserRepository
 from src.services.consents.service import ConsentService
 from src.services.directions.service import DirectionService
+from src.services.events.service import EventService
 from src.services.users.service import UserService
 
 
@@ -54,5 +57,27 @@ def create_router(
             response = await handler(session).consent(query.from_user, query.data)
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard)
+
+    @router.callback_query(
+        F.data.startswith("direction:")
+        | F.data.startswith("event:")
+        | F.data.startswith("events:"),
+        F.message.chat.type == "private",
+    )
+    async def events(query: CallbackQuery) -> None:
+        if not isinstance(query.message, Message) or query.data is None:
+            await query.answer()
+            return
+        factory = session_factory or get_session_factory()
+        async with factory() as session, session.begin():
+            if query.data == "events:menu":
+                response = await handler(session).start(query.from_user, None)
+            else:
+                response = await EventHandler(
+                    EventService(EventRepository(session)),
+                    DirectionService(DirectionRepository(session)),
+                ).read(query.data)
+        await query.answer()
+        await query.message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
 
     return router
