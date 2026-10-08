@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     telegram_token: SecretStr = SecretStr("")
     tbank_terminal_key: SecretStr = SecretStr("")
     tbank_password: SecretStr = SecretStr("")
+    tbank_api_token: SecretStr = SecretStr("")
+    tbank_api_base_url: str = "https://securepay.tinkoff.ru/v2"
     tbank_webhook_secret: SecretStr = SecretStr("")
+    ticket_qr_secret: SecretStr = SecretStr("")
     reservation_ttl_seconds: int = Field(default=600, gt=0)
     database_pool_size: int = Field(default=5, gt=0)
     database_max_overflow: int = Field(default=10, ge=0)

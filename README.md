@@ -47,7 +47,10 @@ not be used for future capacity, locking or concurrency tests.
 Settings load environment variables and optional `.env`; `get_settings()` caches
 the validated object. Restart after configuration changes. Production requires
 nonblank `TELEGRAM_TOKEN`, `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD` and
-`TBANK_WEBHOOK_SECRET`. Integration credentials remain blank for development.
+`TBANK_WEBHOOK_SECRET`. The payment slice uses T‑Bank Internet Acquiring from
+the T‑Business cabinet (`/v2/Init`, `GetState`, `Cancel`); `TBANK_API_TOKEN` is
+optional when the terminal contract does not require a bearer token. Integration
+credentials remain blank for development.
 Database/Redis URLs must include a host; the database uses `postgresql+asyncpg`.
 All defaults and environment names are shown in `.env.example`; reservation TTL
 defaults to 600 seconds. Pool size, timeouts and delivery rate must be positive;
