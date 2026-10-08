@@ -36,6 +36,20 @@ class PaymentCheckoutService:
             service = PaymentService(PaymentRepository(session), self.gateway, self.clock)
             intent = await service.prepare(order_id)
 
+        if intent.recovery_required:
+            finder = getattr(self.gateway, "find_by_order", None)
+            recovered = None
+            if callable(finder):
+                try:
+                    recovered = await finder(str(order_id))
+                except PaymentGatewayError:
+                    recovered = None
+            async with self.session_factory() as session, session.begin():
+                service = PaymentService(PaymentRepository(session), self.gateway, self.clock)
+                if recovered is not None:
+                    return await service.attach_recovered_init(intent.payment_id, recovered)
+                return await service.mark_init_unknown(intent.payment_id)
+
         if intent.request is None:
             return intent.checkout
 

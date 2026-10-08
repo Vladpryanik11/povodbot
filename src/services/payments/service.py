@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +16,7 @@ from src.models.commerce import (
 )
 from src.models.outbox import Outbox
 from src.models.payments import Payment, PaymentEvent, PaymentStatus
+from src.repositories.events import EventRepository
 from src.repositories.orders import OrderRepository
 from src.repositories.payments import PaymentRepository
 from src.services.analytics.attribution import AttributionService, FunnelEventName
@@ -52,6 +53,7 @@ KNOWN_STATUSES = (
         "REVERSING",
     }
 )
+PAYMENT_INIT_LEASE = timedelta(seconds=60)
 
 
 class PaymentStateError(ValueError):
@@ -74,6 +76,7 @@ class PaymentInitIntent:
     order_id: UUID
     request: CreatePaymentRequest | None
     checkout: PaymentCheckoutDTO
+    recovery_required: bool = False
 
 
 def _utc(value: datetime) -> datetime:
@@ -179,7 +182,12 @@ class PaymentService:
     async def prepare(self, order_id: UUID) -> PaymentInitIntent:
         self._require_transaction()
         now = _utc(self.clock.now())
-        order = await OrderRepository(self.repository.session).get_for_update(order_id)
+        order_repository = OrderRepository(self.repository.session)
+        event_id = await order_repository.event_id(order_id)
+        event = await EventRepository(self.repository.session).get_for_update(event_id)
+        if event is None:
+            raise LookupError("Event not found")
+        order = await order_repository.get_for_update(order_id)
         if OrderStatus(order.status) != OrderStatus.PENDING_PAYMENT:
             raise PaymentStateError("Only pending orders can start payment")
         reservation = order.reservation
@@ -219,18 +227,58 @@ class PaymentService:
             )
             return PaymentInitIntent(existing.id, existing.order_id, None, checkout)
 
+        if existing is not None:
+            existing_status = PaymentStatus(existing.status)
+            lease_active = existing.init_lease_until is not None and now < _utc(
+                existing.init_lease_until
+            )
+            if lease_active:
+                checkout = PaymentCheckoutDTO(
+                    existing.id,
+                    existing.order_id,
+                    None,
+                    None,
+                    existing_status,
+                )
+                return PaymentInitIntent(existing.id, existing.order_id, None, checkout)
+            if existing_status == PaymentStatus.PROCESSING:
+                existing.status = PaymentStatus.RECONCILIATION_REQUIRED
+                existing.provider_status = "INIT_UNKNOWN"
+                existing.init_lease_until = None
+                await self.repository.save()
+                checkout = PaymentCheckoutDTO(
+                    existing.id,
+                    existing.order_id,
+                    None,
+                    None,
+                    PaymentStatus(existing.status),
+                )
+                return PaymentInitIntent(
+                    existing.id,
+                    existing.order_id,
+                    None,
+                    checkout,
+                    recovery_required=True,
+                )
+
         if existing is None:
             payment = Payment(
                 order_id=order.id,
                 provider="tbank",
                 amount_kopecks=order.total_kopecks,
                 currency=order.currency,
-                status=PaymentStatus.PENDING,
+                status=PaymentStatus.PROCESSING,
+                provider_status="INIT_IN_PROGRESS",
+                init_lease_until=now + PAYMENT_INIT_LEASE,
             )
             self.repository.session.add(payment)
             await self.repository.save()
         else:
             payment = existing
+            payment.status = PaymentStatus.PROCESSING
+            payment.provider_status = "INIT_IN_PROGRESS"
+            payment.init_lease_until = now + PAYMENT_INIT_LEASE
+            await self.repository.save()
 
         request = CreatePaymentRequest(
             order_id=order.id,
@@ -256,16 +304,34 @@ class PaymentService:
             raise PaymentStateError("Provider amount does not match the order")
         if not response.provider_payment_id or not response.payment_url:
             raise PaymentStateError("Provider response is missing payment identity")
-        payment.provider_payment_id = response.provider_payment_id
-        payment.provider_status = response.provider_status
-        payment.payment_url = response.payment_url
-        payment.status = self._local_initial_status(response.provider_status)
+        raw_order_id = next(
+            (
+                value
+                for key, value in response.raw.items()
+                if str(key).lower().replace("_", "") == "orderid"
+            ),
+            None,
+        )
+        if raw_order_id is not None and str(raw_order_id) != str(payment.order_id):
+            raise PaymentStateError("Provider order does not match the payment")
+        if payment.provider_payment_id is not None:
+            if payment.provider_payment_id != response.provider_payment_id:
+                raise PaymentStateError("Provider payment identity is already linked")
+            if payment.payment_url is None:
+                payment.payment_url = response.payment_url
+            payment.init_lease_until = None
+        else:
+            payment.provider_payment_id = response.provider_payment_id
+            payment.provider_status = response.provider_status
+            payment.payment_url = response.payment_url
+            payment.status = self._local_initial_status(response.provider_status)
+            payment.init_lease_until = None
         await self.repository.save()
         return PaymentCheckoutDTO(
             payment.id,
             payment.order_id,
-            response.provider_payment_id,
-            response.payment_url,
+            payment.provider_payment_id,
+            payment.payment_url,
             PaymentStatus(payment.status),
         )
 
@@ -274,6 +340,7 @@ class PaymentService:
         payment = await self.repository.get_for_update(payment_id)
         payment.status = PaymentStatus.RECONCILIATION_REQUIRED
         payment.provider_status = "INIT_UNKNOWN"
+        payment.init_lease_until = None
         await self.repository.save()
         return PaymentCheckoutDTO(
             payment.id,
@@ -288,6 +355,8 @@ class PaymentService:
     ) -> PaymentCheckoutDTO:
         self._require_transaction()
         payment = await self.repository.get_for_update(payment_id)
+        if not recovered.provider_payment_id:
+            raise PaymentStateError("Recovered provider payment identity is missing")
         if recovered.amount_minor is not None and recovered.amount_minor != payment.amount_kopecks:
             raise PaymentStateError("Recovered provider amount does not match the order")
         raw_order_id = next(
@@ -300,9 +369,15 @@ class PaymentService:
         )
         if raw_order_id is not None and str(raw_order_id) != str(payment.order_id):
             raise PaymentStateError("Recovered provider order does not match the order")
+        if (
+            payment.provider_payment_id is not None
+            and payment.provider_payment_id != recovered.provider_payment_id
+        ):
+            raise PaymentStateError("Provider payment identity is already linked")
         payment.provider_payment_id = recovered.provider_payment_id
         payment.provider_status = recovered.provider_status
         payment.status = PaymentStatus.RECONCILIATION_REQUIRED
+        payment.init_lease_until = None
         await self.repository.save()
         return PaymentCheckoutDTO(
             payment.id,

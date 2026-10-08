@@ -49,6 +49,7 @@ class Payment(UUIDPrimaryKey, Timestamps, Base):
     failure_message: Mapped[str | None] = mapped_column(Text)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    init_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     order: Mapped["Order"] = relationship(back_populates="payment")
     events: Mapped[list["PaymentEvent"]] = relationship(
         back_populates="payment", cascade="all, delete-orphan", lazy="selectin"
