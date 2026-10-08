@@ -94,15 +94,10 @@ class CampaignOutboxWorker(_OutboxWorker):
             CampaignStatus.RUNNING,
         }:
             return
-
-        eligible_ids = {
-            recipient.user_id
-            for recipient in await SegmentService(session).resolve(campaign.audience)
-        }
-        if not eligible_ids:
+        recipients = await SegmentService(session).resolve(campaign.audience)
+        if not recipients:
             campaign.status = CampaignStatus.COMPLETED
             return
-
         terminal_ids = set(
             await session.scalars(
                 select(CampaignDelivery.user_id).where(
@@ -111,7 +106,7 @@ class CampaignOutboxWorker(_OutboxWorker):
                 )
             )
         )
-        if eligible_ids.issubset(terminal_ids):
+        if all(recipient.user_id in terminal_ids for recipient in recipients):
             campaign.status = CampaignStatus.COMPLETED
 
     async def _finish(
