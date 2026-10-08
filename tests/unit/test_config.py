@@ -128,3 +128,55 @@ def test_logging_redacts_nested_secrets_and_connection_credentials(capsys):
     output = capsys.readouterr().out
     for value in ("fake-nested-token", "fake-db-password", "arbitrary-password"):
         assert value not in output
+
+
+@pytest.mark.parametrize("field", ["database_url", "redis_url"])
+def test_logging_redacts_encoded_and_decoded_connection_passwords(capsys, field):
+    import json
+
+    import structlog
+
+    from src.core.logging import configure_logging
+
+    url = (
+        "postgresql+asyncpg://user:review%40dummy@localhost/povod"
+        if field == "database_url"
+        else "redis://:review%40dummy@localhost:6379/0"
+    )
+    configure_logging(Settings(**{field: url}, _env_file=None))
+    structlog.get_logger().info(
+        "connection_failed", details={"encoded": url, "decoded": "review@dummy"}
+    )
+    output = capsys.readouterr().out
+    assert "review%40dummy" not in output
+    assert "review@dummy" not in output
+    payload = json.loads(output)
+    assert payload["event"] == "connection_failed"
+    assert payload["details"]["decoded"] == "[REDACTED]"
+
+
+@pytest.mark.parametrize("value_kind", ["exception", "arbitrary_object"])
+def test_logging_redacts_configured_secrets_in_serialized_objects(capsys, value_kind):
+    import json
+
+    import structlog
+
+    from src.core.logging import configure_logging
+
+    class ProviderFailure:
+        def __repr__(self):
+            return "ProviderFailure(review-dummy-telegram-token)"
+
+    value = (
+        RuntimeError("provider failed with review-dummy-telegram-token")
+        if value_kind == "exception"
+        else ProviderFailure()
+    )
+    configure_logging(Settings(telegram_token="review-dummy-telegram-token", _env_file=None))
+    structlog.get_logger().error("provider_failed", details={"errors": [value]}, attempts=1)
+    output = capsys.readouterr().out
+    assert "review-dummy-telegram-token" not in output
+    payload = json.loads(output)
+    assert "[REDACTED]" in payload["details"]["errors"][0]
+    assert payload["event"] == "provider_failed"
+    assert payload["attempts"] == 1

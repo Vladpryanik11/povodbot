@@ -22,11 +22,13 @@ def configure_logging(settings: Settings) -> None:
     )
 
     connection_secrets = tuple(
-        unquote(password)
+        form
         for url in (settings.database_url, settings.redis_url)
         if (password := urlsplit(url).password)
+        for form in (password, unquote(password))
+        if form
     )
-    secrets = configured_secrets + connection_secrets
+    secrets = sorted(set(configured_secrets + connection_secrets), key=len, reverse=True)
 
     def sanitize(value: object, key: str = "") -> object:
         if isinstance(value, SecretStr) or any(
@@ -37,6 +39,10 @@ def configure_logging(settings: Settings) -> None:
             return {str(k): sanitize(v, str(k)) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
             return [sanitize(item) for item in value]
+        # Normalize unsupported JSON values before redaction, so JSONRenderer cannot
+        # introduce unredacted credentials later through an object's representation.
+        if value is not None and not isinstance(value, (str, bool, int, float)):
+            value = repr(value)
         if isinstance(value, str):
             for secret in secrets:
                 value = value.replace(secret, "[REDACTED]")
