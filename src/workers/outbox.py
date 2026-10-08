@@ -160,23 +160,24 @@ class PaymentRefundOutboxWorker(_OutboxWorker):
             if event is None or event.processed_at is not None:
                 return
             payment_id = UUID(self._required_text(job, "payment_id"))
-            payment = await session.scalar(
-                select(Payment).where(Payment.id == payment_id).with_for_update()
-            )
+            payment = await session.scalar(select(Payment).where(Payment.id == payment_id))
             if payment is None:
                 event.processed_at = datetime.now(UTC)
                 return
-            payment.provider_status = provider_status[:64]
             if reconcile:
                 await PaymentService(PaymentRepository(session), self.gateway).apply_webhook(
                     PaymentWebhookDTO(
-                        provider_payment_id=payment.provider_payment_id or "",
+                        provider_payment_id=self._required_text(job, "provider_payment_id"),
                         provider_status=provider_status,
-                        amount_minor=payment.amount_kopecks,
+                        amount_minor=job.payload.get("amount_minor")
+                        if isinstance(job.payload.get("amount_minor"), int)
+                        else None,
                         event_id=f"refund-outbox:{job.id}",
                         payload={"Status": provider_status},
                     )
                 )
+            else:
+                payment.provider_status = provider_status[:64]
             if provider_status in REFUNDED_STATUSES or provider_status in REFUNDING_STATUSES:
                 event.processed_at = datetime.now(UTC)
                 event.available_at = datetime.now(UTC)

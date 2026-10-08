@@ -3,13 +3,14 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from src.models.payments import Payment, PaymentStatus
+from src.models.payments import Payment, PaymentEvent, PaymentStatus
 from src.repositories.payments import PaymentRepository
 from src.services.payments.checkout import PaymentCheckoutService
 from src.services.payments.dtos import (
     CreatePaymentResponse,
+    PaymentWebhookDTO,
     ProviderOperationResult,
     ProviderPaymentStatus,
 )
@@ -97,6 +98,53 @@ async def test_concurrent_checkout_claims_call_provider_init_once(pg_factory):
     gateway.release.set()
     first = await asyncio.wait_for(first_task, timeout=2)
     assert first.payment_url == "https://pay/blocking"
+
+
+async def test_concurrent_unknown_webhooks_are_idempotent(pg_factory):
+    webhook = PaymentWebhookDTO(
+        provider_payment_id="unknown-race-payment",
+        provider_status="NEW",
+        event_id="unknown-race-event",
+        payload={"Status": "NEW", "sensitive": "must not matter"},
+    )
+    arrived = 0
+    queried = 0
+    arrivals_lock = asyncio.Lock()
+    queries_lock = asyncio.Lock()
+    both_arrived = asyncio.Event()
+    both_queried = asyncio.Event()
+
+    class BarrierPaymentRepository(PaymentRepository):
+        async def event_by_key(self, key):
+            nonlocal arrived, queried
+            async with arrivals_lock:
+                arrived += 1
+                if arrived == 2:
+                    both_arrived.set()
+            await both_arrived.wait()
+            result = await super().event_by_key(key)
+            async with queries_lock:
+                queried += 1
+                if queried == 2:
+                    both_queried.set()
+            await both_queried.wait()
+            return result
+
+    async def deliver():
+        async with pg_factory() as session, session.begin():
+            return await PaymentService(
+                BarrierPaymentRepository(session), BlockingGateway(), FixedClock(NOW)
+            ).apply_webhook(webhook)
+
+    first, second = await asyncio.wait_for(asyncio.gather(deliver(), deliver()), timeout=5)
+
+    assert first.accepted is True
+    assert second.accepted is True
+    assert sorted((first.duplicate, second.duplicate)) == [False, True]
+
+    async with pg_factory() as session:
+        count = await session.scalar(select(func.count()).select_from(PaymentEvent))
+        assert count == 1
 
 
 async def test_expired_init_lease_recovers_without_second_provider_init(pg_factory):

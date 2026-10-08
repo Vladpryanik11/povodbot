@@ -426,7 +426,7 @@ class PaymentService:
         existing_event = await self.repository.event_by_key(event.deduplication_key)
         if existing_event is not None:
             payment = (
-                await self.repository.by_provider_payment_for_update(event.provider_payment_id)
+                await self.repository.by_id(existing_event.payment_id)
                 if existing_event.payment_id
                 else None
             )
@@ -439,42 +439,96 @@ class PaymentService:
                 reason="duplicate_event",
             )
 
-        payment = await self.repository.by_provider_payment_for_update(event.provider_payment_id)
-        if payment is None and event.order_id:
+        unlocked_payment = await self.repository.by_provider_payment(event.provider_payment_id)
+        requested_order_id: UUID | None = None
+        if event.order_id:
             try:
-                payment = await self.repository.by_order_for_update(UUID(event.order_id))
+                requested_order_id = UUID(event.order_id)
             except ValueError:
-                payment = None
-            if payment is not None and payment.provider_payment_id is None:
-                payment.provider_payment_id = event.provider_payment_id
-        if payment is None:
-            self.repository.session.add(
-                PaymentEvent(
-                    provider="tbank",
-                    provider_payment_id=event.provider_payment_id,
-                    deduplication_key=event.deduplication_key,
-                    provider_status=normalized,
-                    payload=_safe_payload(event.payload),
-                    received_at=now,
-                    applied_at=now,
-                    ignored_reason="unknown_payment",
-                )
-            )
-            await self.repository.save()
-            return PaymentApplicationResult(True, False, None, None, None, "unknown_payment")
+                requested_order_id = None
 
-        # Re-check after the payment row lock so two concurrent deliveries of
-        # the same provider event serialize without applying it twice.
-        existing_event = await self.repository.event_by_key(event.deduplication_key)
-        if existing_event is not None:
-            return PaymentApplicationResult(
-                True,
-                True,
-                payment.id,
-                PaymentStatus(payment.status),
-                None,
-                "duplicate_event",
+        order_id: UUID | None
+        if unlocked_payment is not None:
+            if requested_order_id is not None and requested_order_id != unlocked_payment.order_id:
+                raise PaymentStateError("Webhook order does not match the payment")
+            order_id = unlocked_payment.order_id
+        else:
+            order_id = requested_order_id
+
+        payment = None
+        if order_id is not None:
+            order_repository = OrderRepository(self.repository.session)
+            try:
+                event_id = await order_repository.event_id(order_id)
+            except LookupError:
+                event_id = None
+            if event_id is not None:
+                await EventRepository(self.repository.session).get_for_update(event_id)
+                await order_repository.get_for_update(order_id)
+                if unlocked_payment is not None:
+                    payment = await self.repository.by_provider_payment_for_update(
+                        event.provider_payment_id
+                    )
+                else:
+                    payment = await self.repository.by_order_for_update(order_id)
+
+                existing_event = await self.repository.event_by_key(event.deduplication_key)
+                if existing_event is not None:
+                    duplicate_payment = (
+                        await self.repository.by_id(existing_event.payment_id)
+                        if existing_event.payment_id
+                        else None
+                    )
+                    return PaymentApplicationResult(
+                        accepted=True,
+                        duplicate=True,
+                        payment_id=existing_event.payment_id,
+                        payment_status=(
+                            PaymentStatus(duplicate_payment.status) if duplicate_payment else None
+                        ),
+                        order_status=None,
+                        reason="duplicate_event",
+                    )
+
+        if payment is not None:
+            if (
+                payment.provider_payment_id is not None
+                and payment.provider_payment_id != event.provider_payment_id
+            ):
+                raise PaymentStateError("Provider payment identity does not match")
+            if payment.provider_payment_id is None:
+                payment.provider_payment_id = event.provider_payment_id
+
+        if payment is None:
+            unknown_event = PaymentEvent(
+                provider="tbank",
+                provider_payment_id=event.provider_payment_id,
+                deduplication_key=event.deduplication_key,
+                provider_status=normalized,
+                payload=_safe_payload(event.payload),
+                received_at=now,
+                applied_at=now,
+                ignored_reason="unknown_payment",
             )
+            inserted = await self.repository.insert_payment_event_if_absent(unknown_event)
+            if not inserted:
+                existing_event = await self.repository.event_by_key(event.deduplication_key)
+                duplicate_payment = (
+                    await self.repository.by_id(existing_event.payment_id)
+                    if existing_event is not None and existing_event.payment_id
+                    else None
+                )
+                return PaymentApplicationResult(
+                    accepted=True,
+                    duplicate=True,
+                    payment_id=(existing_event.payment_id if existing_event else None),
+                    payment_status=(
+                        PaymentStatus(duplicate_payment.status) if duplicate_payment else None
+                    ),
+                    order_status=None,
+                    reason="duplicate_event",
+                )
+            return PaymentApplicationResult(True, False, None, None, None, "unknown_payment")
 
         payment_event = PaymentEvent(
             payment_id=payment.id,
@@ -650,7 +704,9 @@ class PaymentService:
 
     async def reconcile(self, payment_id: UUID) -> PaymentDTO:
         self._require_transaction()
-        payment = await self.repository.get_for_update(payment_id)
+        payment = await self.repository.by_id(payment_id)
+        if payment is None:
+            raise LookupError("Payment not found")
         if not payment.provider_payment_id:
             raise PaymentStateError("Payment has no provider identity")
         provider_status = await self.gateway.get_status(payment.provider_payment_id)
@@ -662,7 +718,10 @@ class PaymentService:
                 payload=provider_status.raw,
             )
         )
-        return self._dto(payment)
+        updated = await self.repository.by_id(payment_id)
+        if updated is None:
+            raise LookupError("Payment not found")
+        return self._dto(updated)
 
     async def bind_provider_payment(self, payment_id: UUID, provider_payment_id: str) -> PaymentDTO:
         self._require_transaction()
@@ -696,6 +755,13 @@ class PaymentService:
         self._require_transaction()
         if not reason or len(reason) > 64:
             raise ValueError("Refund reason is required")
+        payment = await self.repository.by_id(payment_id)
+        if payment is None:
+            raise LookupError("Payment not found")
+        order_repository = OrderRepository(self.repository.session)
+        event_id = await order_repository.event_id(payment.order_id)
+        await EventRepository(self.repository.session).get_for_update(event_id)
+        await order_repository.get_for_update(payment.order_id)
         payment = await self.repository.get_for_update(payment_id)
         if not payment.provider_payment_id:
             raise PaymentStateError("Payment has no provider identity")
