@@ -158,6 +158,27 @@ def upgrade() -> None:
         BEFORE INSERT OR UPDATE ON reservation_items
         FOR EACH ROW EXECUTE FUNCTION validate_reservation_item_reference()
     """)
+    op.execute("""
+        CREATE FUNCTION reject_commerce_ownership_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            RAISE EXCEPTION 'Commerce ownership is immutable' USING ERRCODE = '55000';
+        END;
+        $$
+    """)
+    op.execute("""
+        CREATE TRIGGER orders_event_ownership_immutable
+        BEFORE UPDATE OF event_id ON orders
+        FOR EACH ROW WHEN (OLD.event_id IS DISTINCT FROM NEW.event_id)
+        EXECUTE FUNCTION reject_commerce_ownership_mutation()
+    """)
+    op.execute("""
+        CREATE TRIGGER reservations_ownership_immutable
+        BEFORE UPDATE OF order_id, event_id ON reservations
+        FOR EACH ROW WHEN (
+            OLD.order_id IS DISTINCT FROM NEW.order_id
+            OR OLD.event_id IS DISTINCT FROM NEW.event_id
+        ) EXECUTE FUNCTION reject_commerce_ownership_mutation()
+    """)
 
 
 def downgrade() -> None:
@@ -170,5 +191,6 @@ def downgrade() -> None:
     op.drop_table("order_items")
     op.drop_index("ix_orders_event_status", table_name="orders")
     op.drop_table("orders")
+    op.execute("DROP FUNCTION reject_commerce_ownership_mutation()")
     op.execute("DROP FUNCTION validate_reservation_item_reference()")
     op.execute("DROP FUNCTION reject_commerce_mutation()")

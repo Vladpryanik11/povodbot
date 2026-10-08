@@ -355,6 +355,7 @@ class OrderService:
         enforce_deadline: bool = True,
     ) -> None:
         current = OrderStatus(order.status)
+        transition = OrderTransition(transition)
         target = next_state(current, transition)
         if target == current:
             return

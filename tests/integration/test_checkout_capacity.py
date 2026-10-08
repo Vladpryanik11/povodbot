@@ -2,7 +2,7 @@ from datetime import timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from src.models.commerce import Order, OrderEvent, OrderItem, OrderTransition, Reservation
@@ -234,6 +234,25 @@ async def test_database_protects_audit_and_snapshots(db_session, table, operatio
     with pytest.raises(DBAPIError, match="immutable"):
         async with db_session.begin_nested():
             await db_session.execute(text(sql))
+
+
+async def test_database_protects_commerce_ownership(db_session):
+    event, user = await catalog(db_session)
+    result = await reservations(db_session).reserve(
+        event.id, [ReservationItem(event.ticket_types[0].id, 1)], user.id, NOW
+    )
+    with pytest.raises(DBAPIError, match="immutable"):
+        async with db_session.begin_nested():
+            await db_session.execute(
+                update(Order).where(Order.id == result.order_id).values(event_id=uuid4())
+            )
+    with pytest.raises(DBAPIError, match="immutable"):
+        async with db_session.begin_nested():
+            await db_session.execute(
+                update(Reservation)
+                .where(Reservation.id == result.reservation_id)
+                .values(event_id=uuid4())
+            )
 
 
 async def test_database_rejects_duplicate_reservation_item(db_session):
