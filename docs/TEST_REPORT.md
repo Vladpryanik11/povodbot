@@ -5,37 +5,41 @@
 ## Continuation hardening status
 
 Текущая ветка `codex/povod-payment-hardening` продолжает архивный baseline
-`ea98bdd`. Добавлены и проверены PostgreSQL integration tests для durable Init
-lease/recovery, concurrent unknown-webhook deduplication, canonical payment
-lock order, admin provider orchestration и campaign schedule validation.
+`ea98bdd`; проверка Task 3 выполнялась на `f21f0d0` до документационного
+коммита. Task 1 был рассмотрен live multi-agent reviewer и получил **PASS** в
+`201b3e8`. Попытка Task 2 в `dc42d72` получила **NEEDS REVISION**, потому что
+не меняла production behavior относительно Task 1 и добавляла redundant test;
+она откатена в `f21f0d0`, scoped re-review получил **PASS**. Поэтому Task 2
+считается pre-satisfied Task 1, а не отдельным production change.
 
-Focused результаты перед финальным полным прогоном:
+Fresh Task 3 verification:
 
-- `test_payment_hardening.py`, `test_tbank_webhook_idempotency.py` и
-  `test_payment_after_expiry.py` — **16 passed**.
-- `test_payment_admin_orchestration.py` вместе с payment-after-expiry — **9
-  passed**.
-- `test_consent_gated_campaign.py` — **4 passed**.
-
-Финальный continuation suite и статические gates завершены:
-
-- `pytest -q` — **259 passed** (`179.79s`) на disposable PostgreSQL
-  `127.0.0.1:55432/povod_task4_test`.
-- `ruff format --check .` — passed; 138 files already formatted.
-- `ruff check .` — passed.
-- `mypy src` — passed; 91 source files.
-- `compileall -q src tests scripts` — passed.
-- `scripts/check_secrets.py` — `Secret scan passed`.
-- `alembic upgrade head` и `alembic check` — passed; no new upgrade operations.
-- Runtime imports и PyYAML Compose parse — passed; services `api, bot, worker,
+- `python -m pytest -q tests/integration/test_consent_gated_campaign.py` —
+  **6 passed in 8.08s** на disposable PostgreSQL
+  `127.0.0.1:55432/povod_task5_test`.
+- `python -m pytest -q` — **261 passed in 203.45s (0:03:23)** на том же
+  disposable PostgreSQL.
+- `python -m ruff format --check .` — passed; **138 files already formatted**.
+  Mixed line endings in the already-committed outbox file were normalized
+  mechanically; the normalized file has no Git content diff.
+- `python -m ruff check .` — `All checks passed!`.
+- `python -m mypy src` — `Success: no issues found in 91 source files`.
+- `python -m compileall -q src tests scripts` — passed.
+- `python scripts/check_secrets.py` — `Secret scan passed`.
+- Runtime imports of `src.api.app`, `src.bot.main` and `src.workers.main` —
+  passed without network calls.
+- `python -m alembic upgrade head` и `python -m alembic check` — passed; no
+  new upgrade operations detected.
+- PyYAML Compose parse — passed; services resolved as `api, bot, worker,
   postgres, redis`.
 - `git diff --check` — passed.
 
-Отдельный self-review continuation range `ea98bdd..HEAD` завершён. В ходе
-проверки найден и исправлен regression промежуточных статусов T‑Bank: они
-ошибочно классифицировались как refund flow. Добавлен regression test; после
-фикса focused webhook suite — **3 passed**, полный suite — **259 passed**.
-Неразрешённых Critical/Important findings по текущему срезу не осталось.
+The Docker CLI is not installed, so `docker compose config --quiet` remains an
+unverified CI gate. No real Telegram call was made. The PostgreSQL outbox
+still has the unchanged at-least-once limitation: if Telegram accepts a
+message and the process fails before the finish transaction commits, the lease
+can cause a retry, and Telegram does not provide a project-used idempotency
+key. This remains an external release risk.
 
 Приведённые ниже 249 тестов относятся к архивному baseline и сохранены как
 историческая точка сравнения.

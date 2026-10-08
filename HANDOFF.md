@@ -67,8 +67,12 @@ lease и recovery, атомарная deduplication неизвестных webho
     возврат ещё не начат. Неясный результат переводится в `REFUND_UNKNOWN` для
     ручной сверки без слепого повторного Cancel.
 11. Consent-gated CRM segments и campaign delivery. Кампания сначала создаёт
-    `CampaignDelivery` + outbox в транзакции; внешний Telegram вызов выполняется
-    worker вне этой транзакции, затем результат фиксируется отдельно.
+    `CampaignDelivery` + outbox в транзакции; после claim worker заново
+    проверяет eligibility непосредственно перед Telegram-вызовом, выполняет
+    внешний вызов вне DB-транзакции и отдельно фиксирует terminal result.
+    `SENT`/`BLOCKED` results переоценивают текущую eligible audience, поэтому
+    последняя staged delivery закрывает кампанию без дополнительного staging
+    pass, когда eligible recipients исчерпаны.
 12. Реальные runtime entrypoints:
 
     ```text
@@ -88,24 +92,29 @@ lease и recovery, атомарная deduplication неизвестных webho
     provider вызов; проверенный snapshot применяется отдельной транзакцией.
 17. `CampaignService.create_draft()` валидирует optional `scheduled_at` как
     timezone-aware timestamp в будущем и сохраняет его в UTC.
+18. Campaign hardening history: Task 1 получил review **PASS** в `201b3e8`.
+    Попытка Task 2 в `dc42d72` была признана no-op относительно Task 1,
+    откатена в `f21f0d0` и прошла scoped re-review; Task 2 считается
+    pre-satisfied Task 1 и не является отдельным production change.
 
 ## Актуальные проверки именно этого среза
 
 Проверки продолжения выполняются в текущем clone на disposable PostgreSQL:
 
 ```text
-TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task4_test
+TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/povod_task5_test
 ```
 
 Результаты:
 
 ```text
-pytest -q                         259 passed in 179.79s
+pytest -q tests/integration/test_consent_gated_campaign.py  6 passed in 8.08s
+pytest -q                         261 passed in 203.45s (0:03:23)
 ruff format --check .             passed; 138 files already formatted
-ruff check .                      passed
-mypy src                          passed; 91 source files
-compileall src tests scripts      passed
-import runtime entrypoints        passed without network calls
+ruff check .                      All checks passed!
+mypy src                          Success; no issues in 91 source files
+compileall -q src tests scripts   passed
+runtime imports                   passed without network calls
 scripts/check_secrets.py          Secret scan passed
 alembic upgrade head              passed
 alembic check                     No new upgrade operations detected
@@ -113,15 +122,22 @@ Compose YAML parse                passed; api, bot, worker, postgres, redis
 git diff --check                  passed
 ```
 
-Отдельный self-review continuation range `ea98bdd..HEAD` завершён. Он выявил
-и закрыл regression, при котором промежуточные статусы T‑Bank ошибочно
-попадали в refund flow; добавлен regression test, а полный suite после фикса
-проходит зелёным. Неразрешённых Critical/Important findings по текущему
-срезу не осталось; внешние release gates перечислены ниже.
+Task 3 ran as a documentation-only handoff. The earlier Task 1 review and
+Task 2 correction used the live multi-agent review workflow; no subagent or
+reviewer was dispatched for Task 3 per authorization. The Task 3 self-review
+found no Critical/Important documentation or outbox-path findings. Task 1's
+deferred Minor remains: the consent-revocation test does not assert the exact
+persisted `recipient_not_eligible` error value.
 
 `docker compose config --quiet` по-прежнему не выполнен, потому что на машине
 не установлена команда `docker`. YAML отдельно разбирается PyYAML, а CI должен
 выполнить настоящий Compose gate.
+
+Реальный Telegram provider call не выполнялся. PostgreSQL outbox intentionally
+remains at-least-once: если Telegram принял сообщение, а процесс упал до
+фиксации finish-транзакции, lease может привести к повторной доставке. У
+Telegram нет используемого проектом provider idempotency key; это внешний
+release risk, а не заявленная exactly-once гарантия.
 
 При работе с локальным PostgreSQL тесты создают схемы `task2_<uuid>` и удаляют
 их после каждого теста. Это disposable database, не production data.
