@@ -1,4 +1,4 @@
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,3 +45,7 @@ class UserRepository:
         ).returning(User)
         result = await self.session.execute(upsert, execution_options={"populate_existing": True})
         return result.scalar_one()
+
+    async def by_telegram_id(self, telegram_id: int) -> User | None:
+        result = await self.session.execute(select(User).where(User.telegram_id == telegram_id))
+        return result.scalar_one_or_none()

@@ -24,7 +24,9 @@ class QrTokenService:
             )
         self.secret = secret.get_secret_value() if isinstance(secret, SecretStr) else secret
         if not self.secret:
-            self.secret = "development-only-qr-secret"
+            if get_settings().environment == "production":
+                raise ValueError("TICKET_QR_SECRET is required in production")
+            self.secret = hashlib.sha256(b"povod-development-qr-key").hexdigest()
 
     def generate(self, ticket_id: UUID) -> str:
         payload = base64.urlsafe_b64encode(ticket_id.bytes).decode().rstrip("=")

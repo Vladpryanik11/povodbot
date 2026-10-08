@@ -57,6 +57,7 @@ class Settings(BaseSettings):
                 "tbank_terminal_key",
                 "tbank_password",
                 "tbank_webhook_secret",
+                "ticket_qr_secret",
             ):
                 if not getattr(self, name).get_secret_value().strip():
                     raise ValueError(f"{name} is required in production")

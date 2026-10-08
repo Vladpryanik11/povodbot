@@ -10,7 +10,14 @@ def test_test_environment_accepts_dummy_secrets():
 
 
 @pytest.mark.parametrize(
-    "field", ["telegram_token", "tbank_terminal_key", "tbank_password", "tbank_webhook_secret"]
+    "field",
+    [
+        "telegram_token",
+        "tbank_terminal_key",
+        "tbank_password",
+        "tbank_webhook_secret",
+        "ticket_qr_secret",
+    ],
 )
 def test_production_requires_each_secret(field):
     values = dict(
@@ -19,6 +26,7 @@ def test_production_requires_each_secret(field):
         tbank_terminal_key="fake-terminal",
         tbank_password="fake-password",
         tbank_webhook_secret="fake-webhook",
+        ticket_qr_secret="fake-qr-secret",
     )
     values[field] = ""
     with pytest.raises(ValidationError):
@@ -32,6 +40,7 @@ def test_production_accepts_explicit_secrets():
         tbank_terminal_key="fake-terminal",
         tbank_password="fake-password",
         tbank_webhook_secret="fake-webhook",
+        ticket_qr_secret="fake-qr-secret",
         _env_file=None,
     )
 

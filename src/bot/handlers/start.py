@@ -7,6 +7,7 @@ from aiogram.types import User as TelegramUser
 
 from src.bot.keyboards.main_menu import consent_prompt, main_menu
 from src.models.identity import ConsentSource, ConsentType
+from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.consents.service import ConsentService, StaleConsentRevision
 from src.services.directions.service import DirectionService
 from src.services.users.service import UserService
@@ -49,11 +50,13 @@ class StartHandler:
         consents: ConsentService,
         directions: DirectionService,
         texts: ConsentTexts,
+        attribution: AttributionService | None = None,
     ):
         self.users = users
         self.consents = consents
         self.directions = directions
         self.texts = texts
+        self.attribution = attribution
 
     async def prompt(self, user_id: UUID, consent_type: ConsentType) -> BotResponse:
         if consent_type == ConsentType.PERSONAL_DATA:
@@ -72,6 +75,9 @@ class StartHandler:
         user = await self.users.upsert_telegram_user(
             sender.id, sender.first_name, sender.last_name, sender.username, start_param
         )
+        if self.attribution is not None:
+            await self.attribution.record_start(user.id, start_param, user.last_seen_at)
+            await self.attribution.record_funnel_event(user.id, FunnelEventName.START)
         if not await self.consents.is_active(user.id, ConsentType.PERSONAL_DATA):
             return await self.prompt(user.id, ConsentType.PERSONAL_DATA)
         if await self.consents.latest(user.id, ConsentType.MARKETING) is None:

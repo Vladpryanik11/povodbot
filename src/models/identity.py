@@ -27,6 +27,7 @@ class User(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "users"
     __table_args__ = (CheckConstraint("telegram_id > 0", name="telegram_id_positive"),)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    is_blocked: Mapped[bool] = mapped_column(default=False)
     first_name: Mapped[str | None] = mapped_column(String(256))
     last_name: Mapped[str | None] = mapped_column(String(256))
     username: Mapped[str | None] = mapped_column(String(256))

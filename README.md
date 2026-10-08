@@ -20,6 +20,10 @@ uvicorn src.api.app:create_app --factory --reload
 On Unix, activate with `source .venv/bin/activate` and copy with `cp .env.example .env`.
 Or run `docker compose up --build` for the API and its local services.
 Visit `/health` for liveness and `/ready` for database readiness (503 on failure).
+The minimal admin shell is available at `/admin`; authenticate via
+`POST /api/admin/auth/login`. Campaign delivery rechecks marketing consent and
+blocked-user state immediately before sending. `/stop` in the Telegram bot
+revokes marketing consent.
 Readiness currently probes only PostgreSQL; Redis is used by a later worker slice.
 No schema or migration is created automatically.
 
@@ -31,6 +35,7 @@ python -m ruff format --check .
 python -m ruff check .
 python -m mypy src
 docker compose config --quiet
+python scripts/check_secrets.py
 ```
 
 Use `python -m ruff format .` to format. Commands and options are configured in
@@ -65,3 +70,5 @@ cross-runtime observability is scheduled for Task 9.
 
 See [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md), and the
 [approved design](docs/superpowers/specs/2026-10-08-povod-mvp-design.md).
+Operational details: [API](docs/API.md), [deployment](docs/DEPLOYMENT.md),
+[database](docs/DATABASE.md), and [recovery](docs/RECOVERY.md).

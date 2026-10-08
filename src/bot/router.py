@@ -1,15 +1,17 @@
 from aiogram import F, Router
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.bot.handlers.events import EventHandler
+from src.bot.handlers.settings import SettingsHandler
 from src.bot.handlers.start import ConsentTexts, StartHandler
 from src.db.session import get_session_factory
 from src.repositories.consents import ConsentRepository
 from src.repositories.directions import DirectionRepository
 from src.repositories.events import EventRepository
 from src.repositories.users import UserRepository
+from src.services.analytics.attribution import AttributionService
 from src.services.consents.service import ConsentService
 from src.services.directions.service import DirectionService
 from src.services.events.service import EventService
@@ -29,6 +31,7 @@ def create_router(
             ConsentService(ConsentRepository(session)),
             DirectionService(DirectionRepository(session)),
             consent_texts,
+            AttributionService(session),
         )
 
     @router.message(CommandStart(), F.chat.type == "private")
@@ -46,6 +49,17 @@ def create_router(
             response = await handler(session).start(message.from_user, command.args)
         # Commit persisted state before telling Telegram that the action succeeded.
         await message.answer(response.text, reply_markup=response.keyboard)
+
+    @router.message(Command("stop"), F.chat.type == "private")
+    async def stop(message: Message) -> None:
+        if message.from_user is None:
+            return
+        factory = session_factory or get_session_factory()
+        async with factory() as session, session.begin():
+            user = await UserRepository(session).by_telegram_id(message.from_user.id)
+            if user is not None:
+                await SettingsHandler(ConsentRepository(session)).unsubscribe_marketing(user.id)
+        await message.answer("Рекламные сообщения отключены. Вернуть их можно в настройках.")
 
     @router.callback_query(F.data.startswith("consent:"), F.message.chat.type == "private")
     async def consent(query: CallbackQuery) -> None:

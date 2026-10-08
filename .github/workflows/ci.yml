@@ -28,4 +28,5 @@ jobs:
       - run: python -m ruff format --check .
       - run: python -m ruff check .
       - run: python -m mypy src
+      - run: python scripts/check_secrets.py
       - run: docker compose config --quiet

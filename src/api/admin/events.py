@@ -5,8 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
+from src.api.admin.dependencies import require_permission
 from src.api.public.events import domain_result, event_service
 from src.models.events import EventStatus
+from src.services.admin.permissions import AdminActor, Permission
 from src.services.events.service import (
     CreateEventCommand,
     EventDTO,
@@ -16,9 +18,10 @@ from src.services.events.service import (
 )
 
 
-async def require_event_admin() -> None:
-    """Fail closed until Task 7 composes authenticated event-management permissions."""
-    raise HTTPException(403, "Event administration requires authorization")
+async def require_event_admin(
+    actor: Annotated[AdminActor, Depends(require_permission(Permission.MANAGE_EVENTS))],
+) -> AdminActor:
+    return actor
 
 
 router = APIRouter(
