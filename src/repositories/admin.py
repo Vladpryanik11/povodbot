@@ -26,10 +26,12 @@ class AdminRepository:
         result = await self.session.execute(
             select(AdminSession)
             .options(joinedload(AdminSession.admin))
+            .join(AdminSession.admin)
             .where(
                 AdminSession.token_hash == token_hash,
                 AdminSession.revoked_at.is_(None),
                 AdminSession.expires_at > now,
+                AdminUser.is_active.is_(True),
             )
         )
         return result.scalar_one_or_none()
@@ -61,10 +63,12 @@ class AdminRepository:
         success: bool = True,
     ) -> AdminAuditLog:
         # Callers pass already-redacted bounded metadata; keep the stored shape small.
+        blocked = ("token", "password", "secret", "credential", "payload", "pan")
         safe_details = {
             str(key)[:64]: value
             for key, value in (details or {}).items()
-            if isinstance(value, (str, int, float, bool)) or value is None
+            if not any(part in str(key).lower() for part in blocked)
+            and (isinstance(value, (str, int, float, bool)) or value is None)
         }
         record = AdminAuditLog(
             actor_id=actor_id,

@@ -12,6 +12,7 @@ from src.models.admin import AdminRole
 from src.repositories.admin import AdminRepository
 from src.services.admin.auth import AdminAuthService
 from src.services.admin.permissions import AdminActor
+from src.services.audit.service import AuditService
 
 router = APIRouter(prefix="/api/admin/auth", tags=["admin auth"])
 SESSION_COOKIE = "povod_admin_session"
@@ -59,7 +60,17 @@ async def login(
 ) -> ActorDTO:
     result = await _service(session).authenticate(payload.login, payload.password)
     if result is None:
+        await AuditService(AdminRepository(session)).record(
+            None,
+            "admin.login_failed",
+            "admin_session",
+            metadata={"login": payload.login[:128]},
+            success=False,
+        )
         raise HTTPException(status_code=401, detail="Invalid login or password")
+    await AuditService(AdminRepository(session)).record(
+        result.actor.id, "admin.login", "admin_session"
+    )
     response.set_cookie(
         SESSION_COOKIE,
         result.token,
@@ -79,9 +90,9 @@ async def logout(
     actor: Annotated[AdminActor, Depends(get_current_admin)],
     token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
 ) -> None:
-    del actor
     if token:
         await _service(session).logout(token)
+    await AuditService(AdminRepository(session)).record(actor.id, "admin.logout", "admin_session")
     response.delete_cookie(SESSION_COOKIE, path="/api/admin")
 
 

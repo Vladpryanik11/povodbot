@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.types import User as TelegramUser
 
 from src.bot.keyboards.main_menu import consent_prompt, main_menu
+from src.core.config import get_settings
 from src.models.identity import ConsentSource, ConsentType
 from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.consents.service import ConsentService, StaleConsentRevision
@@ -28,6 +29,18 @@ class ConsentTexts:
     )
     personal_data_version: str = "draft-v1"
     marketing_version: str = "draft-v1"
+
+    @classmethod
+    def from_settings(cls) -> "ConsentTexts":
+        settings = get_settings()
+        if settings.environment != "production":
+            return cls()
+        return cls(
+            personal_data_text=settings.personal_consent_text,
+            personal_data_version=settings.personal_consent_version,
+            marketing_text=settings.marketing_consent_text,
+            marketing_version=settings.marketing_consent_version,
+        )
 
     def __post_init__(self) -> None:
         for version in (self.personal_data_version, self.marketing_version):

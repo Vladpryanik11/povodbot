@@ -35,7 +35,7 @@ class DashboardDTO(BaseModel):
 class CheckinInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     token: str
-    event_id: UUID | None = None
+    event_id: UUID
 
 
 @router.get("/api/admin/dashboard", response_model=DashboardDTO)

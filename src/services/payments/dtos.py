@@ -52,8 +52,8 @@ class ProviderOperationResult:
 class PaymentCheckoutDTO:
     payment_id: UUID
     order_id: UUID
-    provider_payment_id: str
-    payment_url: str
+    provider_payment_id: str | None
+    payment_url: str | None
     status: PaymentStatus
 
 

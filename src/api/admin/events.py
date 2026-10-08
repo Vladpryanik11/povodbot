@@ -4,11 +4,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.admin.dependencies import require_permission
 from src.api.public.events import domain_result, event_service
+from src.db.session import get_async_session
 from src.models.events import EventStatus
+from src.repositories.admin import AdminRepository
 from src.services.admin.permissions import AdminActor, Permission
+from src.services.audit.service import AuditService
 from src.services.events.service import (
     CreateEventCommand,
     EventDTO,
@@ -98,16 +102,32 @@ class UpdateEventInput(BaseModel):
 
 @router.post("", response_model=EventDTO, status_code=201)
 async def create_event(
-    command: CreateEventInput, events: Annotated[EventService, Depends(event_service)]
+    command: CreateEventInput,
+    events: Annotated[EventService, Depends(event_service)],
+    actor: Annotated[AdminActor | None, Depends(require_event_admin)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> EventDTO:
-    return await domain_result(events.create_draft(command.command()))
+    result = await domain_result(events.create_draft(command.command()))
+    if actor is not None:
+        await AuditService(AdminRepository(session)).record(
+            actor.id, "event.create", "event", result.id
+        )
+    return result
 
 
 @router.post("/{event_id}/publish", response_model=EventDTO)
 async def publish_event(
-    event_id: UUID, events: Annotated[EventService, Depends(event_service)]
+    event_id: UUID,
+    events: Annotated[EventService, Depends(event_service)],
+    actor: Annotated[AdminActor | None, Depends(require_event_admin)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> EventDTO:
-    return await domain_result(events.publish(event_id))
+    result = await domain_result(events.publish(event_id))
+    if actor is not None:
+        await AuditService(AdminRepository(session)).record(
+            actor.id, "event.publish", "event", result.id
+        )
+    return result
 
 
 @router.patch("/{event_id}", response_model=EventDTO)
@@ -115,5 +135,12 @@ async def update_event(
     event_id: UUID,
     command: UpdateEventInput,
     events: Annotated[EventService, Depends(event_service)],
+    actor: Annotated[AdminActor | None, Depends(require_event_admin)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> EventDTO:
-    return await domain_result(events.update(event_id, command.command()))
+    result = await domain_result(events.update(event_id, command.command()))
+    if actor is not None:
+        await AuditService(AdminRepository(session)).record(
+            actor.id, "event.update", "event", result.id
+        )
+    return result

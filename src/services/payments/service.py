@@ -17,6 +17,7 @@ from src.models.commerce import (
 from src.models.payments import Payment, PaymentEvent, PaymentStatus
 from src.repositories.orders import OrderRepository
 from src.repositories.payments import PaymentRepository
+from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.commerce.clock import Clock, SystemClock
 from src.services.orders.service import InvalidOrderTransition, OrderService
 from src.services.payments.dtos import (
@@ -25,7 +26,7 @@ from src.services.payments.dtos import (
     PaymentDTO,
     PaymentWebhookDTO,
 )
-from src.services.payments.ports import PaymentGateway
+from src.services.payments.ports import PaymentGateway, PaymentGatewayError
 
 CONFIRMED_STATUSES = {"CONFIRMED"}
 AUTHORIZED_STATUSES = {"AUTHORIZED"}
@@ -71,14 +72,37 @@ def _utc(value: datetime) -> datetime:
 
 
 def _safe_payload(payload: dict[str, Any]) -> dict[str, object]:
-    blocked = {"Token", "Password", "Pan", "CardId", "ExpDate", "RebillId"}
-    result: dict[str, object] = {}
-    for key, value in payload.items():
-        if key in blocked or isinstance(value, (dict, list)):
-            continue
+    blocked = {
+        "token",
+        "password",
+        "pan",
+        "cardid",
+        "expdate",
+        "rebillid",
+        "cvv",
+        "cvc",
+    }
+
+    def scrub(value: object, key: str = "") -> object | None:
+        if key.lower().replace("_", "") in blocked:
+            return None
+        if isinstance(value, dict):
+            return {
+                str(child_key): scrub(child_value, str(child_key))
+                for child_key, child_value in value.items()
+                if str(child_key).lower().replace("_", "") not in blocked
+            }
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
         if isinstance(value, (str, int, float, bool)) or value is None:
-            result[key] = value
-    return result
+            return value
+        return None
+
+    return {
+        str(key): scrub(value, str(key))
+        for key, value in payload.items()
+        if str(key).lower().replace("_", "") not in blocked
+    }
 
 
 class PaymentService:
@@ -148,38 +172,53 @@ class PaymentService:
                 existing.payment_url,
                 PaymentStatus(existing.status),
             )
-
-        response = await self.gateway.create_payment(
-            CreatePaymentRequest(
-                order_id=order.id,
-                amount_minor=order.total_kopecks,
-                description=f"Повод — заказ {order.id}",
-                redirect_due_date=order.expires_at,
-            )
-        )
-        if response.amount_minor is not None and response.amount_minor != order.total_kopecks:
-            raise PaymentStateError("Provider amount does not match the order")
-        if not response.provider_payment_id or not response.payment_url:
-            raise PaymentStateError("Provider response is missing payment identity")
+        if (
+            existing is not None
+            and PaymentStatus(existing.status) == PaymentStatus.RECONCILIATION_REQUIRED
+        ):
+            raise PaymentStateError("Payment initialization requires reconciliation")
 
         if existing is None:
             payment = Payment(
                 order_id=order.id,
                 provider="tbank",
-                provider_payment_id=response.provider_payment_id,
                 amount_kopecks=order.total_kopecks,
                 currency=order.currency,
-                status=self._local_initial_status(response.provider_status),
-                provider_status=response.provider_status,
-                payment_url=response.payment_url,
+                status=PaymentStatus.PENDING,
             )
             self.repository.session.add(payment)
+            await self.repository.save()
         else:
             payment = existing
-            payment.provider_payment_id = response.provider_payment_id
-            payment.provider_status = response.provider_status
-            payment.payment_url = response.payment_url
-            payment.status = self._local_initial_status(response.provider_status)
+
+        try:
+            response = await self.gateway.create_payment(
+                CreatePaymentRequest(
+                    order_id=order.id,
+                    amount_minor=order.total_kopecks,
+                    description=f"Повод — заказ {order.id}",
+                    redirect_due_date=order.expires_at,
+                )
+            )
+        except PaymentGatewayError:
+            # The provider may have accepted Init before the response was
+            # lost. Persist an unresolved state and never issue Init twice
+            # for the same local order without reconciliation.
+            payment.status = PaymentStatus.RECONCILIATION_REQUIRED
+            payment.provider_status = "INIT_UNKNOWN"
+            await self.repository.save()
+            return PaymentCheckoutDTO(
+                payment.id, payment.order_id, None, None, PaymentStatus(payment.status)
+            )
+        if response.amount_minor is not None and response.amount_minor != order.total_kopecks:
+            raise PaymentStateError("Provider amount does not match the order")
+        if not response.provider_payment_id or not response.payment_url:
+            raise PaymentStateError("Provider response is missing payment identity")
+
+        payment.provider_payment_id = response.provider_payment_id
+        payment.provider_status = response.provider_status
+        payment.payment_url = response.payment_url
+        payment.status = self._local_initial_status(response.provider_status)
         await self.repository.save()
         return PaymentCheckoutDTO(
             payment.id,
@@ -213,6 +252,13 @@ class PaymentService:
             )
 
         payment = await self.repository.by_provider_payment_for_update(event.provider_payment_id)
+        if payment is None and event.order_id:
+            try:
+                payment = await self.repository.by_order_for_update(UUID(event.order_id))
+            except ValueError:
+                payment = None
+            if payment is not None and payment.provider_payment_id is None:
+                payment.provider_payment_id = event.provider_payment_id
         if payment is None:
             self.repository.session.add(
                 PaymentEvent(
@@ -323,6 +369,15 @@ class PaymentService:
 
         if payment.status == PaymentStatus.CONFIRMED:
             payment.paid_at = now
+            user_id = await self.repository.session.scalar(
+                select(Order.user_id).where(Order.id == payment.order_id)
+            )
+            if user_id is not None:
+                attribution = AttributionService(self.repository.session)
+                await attribution.record_purchase(user_id, now)
+                await attribution.record_funnel_event(
+                    user_id, FunnelEventName.PURCHASE, occurred_at=now
+                )
             from src.services.tickets.issuer import TicketIssuer
 
             await TicketIssuer(self.repository.session).issue_for_paid_order(payment.order_id)
@@ -363,20 +418,14 @@ class PaymentService:
         if status == OrderStatus.PAID:
             return status
         if status == OrderStatus.PENDING_PAYMENT:
-            order = await OrderRepository(self.repository.session).get_for_update(payment.order_id)
-            reservation = order.reservation
-            if reservation is None:
-                reservation = await self.repository.session.scalar(
-                    select(Reservation).where(Reservation.order_id == order.id).with_for_update()
-                )
-            if (
-                reservation is not None
-                and reservation.status == ReservationStatus.ACTIVE
-                and now < reservation.expires_at
-            ):
-                return await self._transition(
-                    payment.order_id, OrderTransition.CONFIRM_PAYMENT, "payment_confirmed"
-                )
+            # OrderService.transition owns the canonical event -> order ->
+            # reservation lock order. Do not pre-lock the order here: expiry
+            # already holds the event lock before it reaches the order.
+            result = await self._transition(
+                payment.order_id, OrderTransition.CONFIRM_PAYMENT, "payment_confirmed"
+            )
+            if result == OrderStatus.PAID:
+                return result
         return await self._require_reconciliation(payment.order_id, "late_payment")
 
     async def _apply_failed(self, payment: Payment, now: datetime) -> OrderStatus:
@@ -436,7 +485,12 @@ class PaymentService:
             raise PaymentStateError("Payment has no provider identity")
         if PaymentStatus(payment.status) == PaymentStatus.REFUNDED:
             return self._dto(payment)
-        if PaymentStatus(payment.status) not in {PaymentStatus.CONFIRMED, PaymentStatus.REFUNDING}:
+        if PaymentStatus(payment.status) == PaymentStatus.REFUNDING:
+            # The provider operation may already have been accepted while its
+            # response was lost. Reconcile by webhook/status instead of
+            # sending a second Cancel request.
+            return self._dto(payment)
+        if PaymentStatus(payment.status) != PaymentStatus.CONFIRMED:
             raise PaymentStateError("Only confirmed payments can be refunded")
         result = await self.gateway.refund(
             payment.provider_payment_id, payment.amount_kopecks, reason

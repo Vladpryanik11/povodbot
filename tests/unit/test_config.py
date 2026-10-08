@@ -27,6 +27,10 @@ def test_production_requires_each_secret(field):
         tbank_password="fake-password",
         tbank_webhook_secret="fake-webhook",
         ticket_qr_secret="fake-qr-secret",
+        personal_consent_text="Approved personal data consent",
+        personal_consent_version="legal-v1",
+        marketing_consent_text="Approved marketing consent",
+        marketing_consent_version="legal-v1",
     )
     values[field] = ""
     with pytest.raises(ValidationError):
@@ -41,6 +45,10 @@ def test_production_accepts_explicit_secrets():
         tbank_password="fake-password",
         tbank_webhook_secret="fake-webhook",
         ticket_qr_secret="fake-qr-secret",
+        personal_consent_text="Approved personal data consent",
+        personal_consent_version="legal-v1",
+        marketing_consent_text="Approved marketing consent",
+        marketing_consent_version="legal-v1",
         _env_file=None,
     )
 

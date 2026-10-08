@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from src.models.campaigns import Campaign, CampaignStatus
 from src.models.identity import ConsentSource, ConsentType
 from src.repositories.admin import AdminRepository
 from src.repositories.consents import ConsentRepository
@@ -34,6 +35,9 @@ async def test_campaign_preview_and_delivery_require_current_marketing_consent(d
     campaign = await CampaignService(db_session).create_draft(
         admin.id, "Test", "Hello", {"telegram_ids": [200]}
     )
+    campaign_model = await db_session.get(Campaign, campaign.id)
+    assert campaign_model is not None
+    campaign_model.status = CampaignStatus.SCHEDULED
     preview = await CampaignService(db_session).preview(campaign.id)
     assert preview.eligible_count == 1
     sender = Sender([])

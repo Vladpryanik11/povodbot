@@ -54,7 +54,7 @@ class CheckinService:
         token: str,
         actor_id: UUID,
         now: datetime,
-        event_id: UUID | None = None,
+        event_id: UUID,
     ) -> CheckinResult:
         self._require_transaction()
         checked_at = _utc(now)
@@ -65,7 +65,7 @@ class CheckinService:
         ticket = await TicketRepository(self.session).get_for_update(ticket_id)
         if not hmac.compare_digest(ticket.token_hash, self.qr.hash_token(token)):
             raise InvalidTicket("Invalid QR token")
-        if event_id is not None and ticket.event_id != event_id:
+        if ticket.event_id != event_id:
             raise InvalidTicket("Ticket belongs to another event")
         if TicketStatus(ticket.status) == TicketStatus.VOIDED:
             raise InvalidTicket("Ticket is voided")

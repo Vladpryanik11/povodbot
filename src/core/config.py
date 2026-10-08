@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     tbank_api_base_url: str = "https://securepay.tinkoff.ru/v2"
     tbank_webhook_secret: SecretStr = SecretStr("")
     ticket_qr_secret: SecretStr = SecretStr("")
+    personal_consent_text: str = ""
+    personal_consent_version: str = ""
+    marketing_consent_text: str = ""
+    marketing_consent_version: str = ""
     reservation_ttl_seconds: int = Field(default=600, gt=0)
     database_pool_size: int = Field(default=5, gt=0)
     database_max_overflow: int = Field(default=10, ge=0)
@@ -61,6 +65,15 @@ class Settings(BaseSettings):
             ):
                 if not getattr(self, name).get_secret_value().strip():
                     raise ValueError(f"{name} is required in production")
+            for name in (
+                "personal_consent_text",
+                "personal_consent_version",
+                "marketing_consent_text",
+                "marketing_consent_version",
+            ):
+                value = getattr(self, name).strip()
+                if not value or value.lower().startswith("draft"):
+                    raise ValueError(f"{name} must be approved in production")
         return self
 
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import pytest
 from sqlalchemy import select
 
 from src.models.commerce import OrderStatus, Reservation, ReservationStatus
@@ -10,7 +11,8 @@ from src.services.payments.dtos import (
     ProviderOperationResult,
     ProviderPaymentStatus,
 )
-from src.services.payments.service import PaymentService
+from src.services.payments.ports import PaymentGatewayError
+from src.services.payments.service import PaymentService, PaymentStateError
 from src.services.reservations.service import ReservationItem
 from tests.commerce_fixtures import NOW, FixedClock, catalog, reservations
 
@@ -30,6 +32,15 @@ class FakeGateway:
 
     async def refund(self, provider_payment_id: str, amount_minor: int, reason: str):
         return ProviderOperationResult(provider_payment_id, "REFUNDING")
+
+
+@dataclass
+class UnknownInitGateway(FakeGateway):
+    calls: int = 0
+
+    async def create_payment(self, request):
+        self.calls += 1
+        raise PaymentGatewayError("response lost after Init")
 
 
 async def test_confirmation_after_expiry_requires_reconciliation_and_releases_reservation(
@@ -52,3 +63,17 @@ async def test_confirmation_after_expiry_requires_reconciliation_and_releases_re
     )
     assert reservation is not None
     assert ReservationStatus(reservation.status) == ReservationStatus.RELEASED
+
+
+async def test_unknown_init_is_persisted_and_not_retried_as_a_second_charge(db_session):
+    event, user = await catalog(db_session)
+    pending = await reservations(db_session).reserve(
+        event.id, [ReservationItem(event.ticket_types[0].id, 1)], user.id, NOW
+    )
+    gateway = UnknownInitGateway()
+    payments = PaymentService(PaymentRepository(db_session), gateway, FixedClock(NOW))
+    unresolved = await payments.start(pending.order_id)
+    assert unresolved.status.value == "reconciliation_required"
+    with pytest.raises(PaymentStateError, match="reconciliation"):
+        await payments.start(pending.order_id)
+    assert gateway.calls == 1

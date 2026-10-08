@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -78,3 +78,20 @@ class CampaignService:
         return CampaignPreviewDTO(
             campaign.id, len(recipients), tuple(r.telegram_id for r in recipients[:10])
         )
+
+    async def schedule(self, campaign_id: UUID, scheduled_at: datetime) -> CampaignDTO:
+        if scheduled_at.tzinfo is None or scheduled_at.utcoffset() is None:
+            raise ValueError("Campaign schedule must be timezone-aware")
+        if scheduled_at.astimezone(UTC) <= datetime.now(UTC):
+            raise ValueError("Campaign schedule must be in the future")
+        campaign = await self.session.scalar(
+            select(Campaign).where(Campaign.id == campaign_id).with_for_update()
+        )
+        if campaign is None:
+            raise LookupError("Campaign not found")
+        if CampaignStatus(campaign.status) != CampaignStatus.DRAFT:
+            raise ValueError("Only draft campaigns can be scheduled")
+        campaign.scheduled_at = scheduled_at.astimezone(UTC)
+        campaign.status = CampaignStatus.SCHEDULED
+        await self.session.flush()
+        return _dto(campaign)

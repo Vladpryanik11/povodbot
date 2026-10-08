@@ -23,7 +23,7 @@ def create_router(
     texts: ConsentTexts | None = None,
 ) -> Router:
     router = Router(name="onboarding")
-    consent_texts = texts or ConsentTexts()
+    consent_texts = texts or ConsentTexts.from_settings()
 
     def handler(session: AsyncSession) -> StartHandler:
         return StartHandler(

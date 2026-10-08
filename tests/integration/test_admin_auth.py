@@ -14,5 +14,8 @@ async def test_admin_session_is_hashed_expiring_and_revocable(db_session):
     assert result.actor.id == user.id
     assert result.token not in user.password_hash
     assert await service.actor_for_token(result.token, now) == result.actor
+    user.is_active = False
+    assert await service.actor_for_token(result.token, now) is None
+    user.is_active = True
     await service.logout(result.token, now)
     assert await service.actor_for_token(result.token, now) is None

@@ -4,7 +4,7 @@
 
 ## Пройдено
 
-- `pytest -q` — **239 passed** (`135.93s`) на PostgreSQL после очистки
+- `pytest -q` — **240 passed** (`106.78s`) на PostgreSQL после очистки
   disposable public schema
   `127.0.0.1:55432/povod_task2_test`.
 - `pytest tests/integration/test_identity_migration.py -q` — **2 passed**;

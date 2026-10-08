@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.campaigns import Campaign, CampaignDelivery, CampaignStatus, DeliveryStatus
@@ -30,6 +30,10 @@ class CampaignDeliveryWorker:
         if campaign is None:
             raise LookupError("Campaign not found")
         if CampaignStatus(campaign.status) in {CampaignStatus.CANCELLED, CampaignStatus.COMPLETED}:
+            return 0
+        if CampaignStatus(campaign.status) == CampaignStatus.DRAFT:
+            raise ValueError("Campaign must be scheduled before delivery")
+        if campaign.scheduled_at is not None and campaign.scheduled_at > datetime.now(UTC):
             return 0
         campaign.status = CampaignStatus.RUNNING
         recipients = await self.segments.resolve(campaign.audience)
@@ -78,7 +82,16 @@ class CampaignDeliveryWorker:
             delivery.provider_message_id = message_id
             delivery.sent_at = datetime.now(UTC)
             delivered += 1
-        if delivered == len(recipients[:batch_size]):
+        await self.session.flush()
+        processed = await self.session.scalar(
+            select(func.count())
+            .select_from(CampaignDelivery)
+            .where(
+                CampaignDelivery.campaign_id == campaign.id,
+                CampaignDelivery.status.in_([DeliveryStatus.SENT, DeliveryStatus.BLOCKED]),
+            )
+        )
+        if not recipients or processed == len(recipients):
             campaign.status = CampaignStatus.COMPLETED
         await self.session.flush()
         return delivered

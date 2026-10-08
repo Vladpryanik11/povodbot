@@ -47,8 +47,31 @@ class AttributionService:
             )
             self.session.add(row)
         else:
-            row.latest_start_param = start_param
+            if start_param is not None:
+                if row.first_start_param is None:
+                    row.first_start_param = start_param
+                row.latest_start_param = start_param
             row.latest_seen_at = now
+        await self.session.flush()
+        return row
+
+    async def record_purchase(self, user_id: UUID, occurred_at: datetime) -> Attribution:
+        now = _utc(occurred_at)
+        row = await self.session.scalar(
+            select(Attribution).where(Attribution.user_id == user_id).with_for_update()
+        )
+        if row is None:
+            row = Attribution(
+                user_id=user_id,
+                first_start_param=None,
+                latest_start_param=None,
+                first_seen_at=now,
+                latest_seen_at=now,
+                first_purchase_at=now,
+            )
+            self.session.add(row)
+        elif row.first_purchase_at is None:
+            row.first_purchase_at = now
         await self.session.flush()
         return row
 
