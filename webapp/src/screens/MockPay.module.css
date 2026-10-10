@@ -6,6 +6,14 @@
   padding: var(--s-40) var(--s-24);
   background: #ffffff;
   color: #1d1a20;
+  /* The mock bank page stays light: local overrides for shared components. */
+  --text-1: #1d1a20;
+  --text-2: #5a545c;
+  --text-3: #8c868e;
+  --surface-3: #e6e1da;
+  --btn-primary: #1d1a20;
+  --on-btn-primary: #ffffff;
+  color-scheme: light;
 }
 .badge {
   align-self: flex-start;

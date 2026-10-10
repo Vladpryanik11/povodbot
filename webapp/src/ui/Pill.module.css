@@ -7,7 +7,7 @@
   font: 600 0.75rem/1rem var(--font-body);
   white-space: nowrap;
 }
-.accent { background: var(--accent); color: var(--on-accent); }
+.accent { background: var(--btn-primary); color: var(--on-btn-primary); }
 .glass { background: var(--photo-pill); color: var(--on-photo); }
 .success { background: var(--surface-2); color: var(--success); }
 .warning { background: var(--surface-2); color: var(--warning); }

@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createTg, type TelegramWebApp } from './tg';
 import { TgProvider, useTheme } from './hooks';
@@ -9,14 +9,11 @@ function ThemeProbe() {
 }
 
 describe('useTheme', () => {
-  it('applies the telegram color scheme and follows themeChanged', () => {
-    let listener: (() => void) | undefined;
+  it('forces dark theme even when Telegram is light', () => {
     const web = {
-      colorScheme: 'dark',
+      colorScheme: 'light',
       initDataUnsafe: {},
-      onEvent: vi.fn((name: string, cb: () => void) => {
-        if (name === 'themeChanged') listener = cb;
-      }),
+      onEvent: vi.fn(),
       offEvent: vi.fn(),
       setHeaderColor: vi.fn(),
       setBackgroundColor: vi.fn(),
@@ -29,14 +26,9 @@ describe('useTheme', () => {
       </TgProvider>,
     );
     expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(web.setHeaderColor).toHaveBeenCalledWith('#0F0E12');
-
-    act(() => {
-      (web as { colorScheme: string }).colorScheme = 'light';
-      listener?.();
-    });
-    expect(document.documentElement.dataset.theme).toBe('light');
-    expect(view.getByTestId('theme').textContent).toBe('light');
-    expect(web.setHeaderColor).toHaveBeenLastCalledWith('#F6F3EE');
+    expect(view.getByTestId('theme').textContent).toBe('dark');
+    expect(web.setHeaderColor).toHaveBeenCalledWith('#000000');
+    expect(web.setBackgroundColor).toHaveBeenCalledWith('#000000');
+    expect(web.onEvent).not.toHaveBeenCalledWith('themeChanged', expect.anything());
   });
 });

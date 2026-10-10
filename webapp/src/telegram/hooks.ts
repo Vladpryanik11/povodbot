@@ -1,6 +1,6 @@
-import { createContext, createElement, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createContext, createElement, useContext, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { mainButtonStore, tg as defaultTg, type ColorScheme, type MainButtonState, type TgFacade } from './tg';
+import { mainButtonStore, tg as defaultTg, type MainButtonState, type TgFacade } from './tg';
 
 const TgContext = createContext<TgFacade>(defaultTg);
 
@@ -12,21 +12,19 @@ export function useTg(): TgFacade {
   return useContext(TgContext);
 }
 
-/** Background of each theme; the Telegram header and overscroll take this colour. */
-export const THEME_BG: Record<ColorScheme, string> = { dark: '#0F0E12', light: '#F6F3EE' };
+/** The app is dark only; the Telegram header and overscroll take this colour. */
+export const THEME_BG = '#000000';
 
-export function useTheme(): ColorScheme {
+/** Forces the dark theme whatever Telegram's colorScheme says. */
+export function useTheme(): 'dark' {
   const tg = useTg();
-  const [theme, setTheme] = useState<ColorScheme>(tg.colorScheme);
-
-  useEffect(() => tg.onThemeChanged(() => setTheme(tg.colorScheme)), [tg]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    tg.setChromeColor(THEME_BG[theme]);
-  }, [tg, theme]);
+    document.documentElement.dataset.theme = 'dark';
+    tg.setChromeColor(THEME_BG);
+  }, [tg]);
 
-  return theme;
+  return 'dark';
 }
 
 type MainButtonInput = Omit<MainButtonState, 'onClick'> & { onClick: () => void };

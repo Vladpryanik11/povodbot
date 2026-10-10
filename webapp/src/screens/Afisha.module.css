@@ -1,6 +1,6 @@
 .page { display: flex; flex-direction: column; gap: var(--s-20); padding: var(--s-12) var(--s-16) 0; }
 .header { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap); }
-.brand { color: var(--accent-text); }
+.brand { color: var(--text-1); }
 .loading { display: flex; flex-direction: column; gap: var(--s-12); }
 
 .plaque {
@@ -15,7 +15,7 @@
   font: 600 0.875rem/1.25rem var(--font-body);
   font-variant-numeric: tabular-nums;
 }
-.plaque svg { color: var(--accent-text); }
+.plaque svg { color: var(--text-1); }
 
 .directions {
   display: flex;

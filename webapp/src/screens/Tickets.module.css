@@ -23,7 +23,7 @@
 
 .rowTitle { display: block; overflow-wrap: anywhere; hyphens: auto; font: 500 0.875rem/1.125rem var(--font-display); }
 .rowMeta { display: block; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
-.count { font: 700 0.9375rem/1.375rem var(--font-body); color: var(--accent-text); }
+.count { font: 700 0.9375rem/1.375rem var(--font-body); color: var(--text-1); }
 .muted { color: var(--text-3); font: 600 0.8125rem/1.125rem var(--font-body); }
 
 .past { border-radius: var(--r-16); background: var(--surface-1); border: 1px solid var(--border); }

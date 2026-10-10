@@ -8,7 +8,7 @@
   align-items: center;
   gap: var(--s-8);
   padding: var(--s-20) var(--s-16);
-  border-radius: var(--r-26);
+  border-radius: var(--r-28);
   background: var(--surface-1);
   border: 1px solid var(--border);
 }
@@ -31,7 +31,7 @@
 }
 .pageButton:disabled { color: var(--text-3); cursor: default; }
 .dots { display: flex; gap: var(--s-4); }
-.dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--border-strong); }
+.dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--text-3); }
 .dotActive { width: 18px; background: var(--text-1); }
 .cached { margin: 0; text-align: center; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
 .actions { display: flex; flex-direction: column; gap: var(--s-8); }

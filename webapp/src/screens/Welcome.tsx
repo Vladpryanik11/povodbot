@@ -42,7 +42,7 @@ export function Welcome({ onAccept }: { onAccept: () => Promise<void> }) {
           );
         })}
       </div>
-      <p className={`t-display ${styles.brand}`}>Повод</p>
+      <p className={`t-billboard ${styles.brand}`}>Повод</p>
       <h1 className={`t-h1 ${styles.title}`}>Привет, это «Повод»</h1>
       <p className={styles.text}>
         Маленький клуб в Москве: киновечера, настолки, разговоры и вечеринки для своих. Здесь выбирают вечер, берут

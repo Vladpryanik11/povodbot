@@ -1,5 +1,5 @@
 .header { position: relative; }
-.poster { border-radius: 0 0 var(--r-26) var(--r-26); }
+.poster { border-radius: 0 0 var(--r-28) var(--r-28); }
 .back {
   position: absolute;
   top: calc(var(--s-12) + env(safe-area-inset-top));

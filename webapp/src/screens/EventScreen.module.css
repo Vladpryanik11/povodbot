@@ -24,13 +24,13 @@
   border: 1px solid var(--border);
 }
 .stats li { display: flex; flex-direction: column; gap: var(--s-4); font: 500 0.8125rem/1.125rem var(--font-body); }
-.iconAccent { color: var(--accent-text); }
-.iconViolet { color: var(--icon-violet); }
-.iconMint { color: var(--icon-mint); }
+.iconAccent { color: var(--text-1); }
+.iconViolet { color: var(--text-2); }
+.iconMint { color: var(--text-2); }
 
 .place { display: flex; gap: var(--s-8); margin: 0; color: var(--text-2); }
 .place svg { flex: none; color: var(--text-3); }
-.place a { color: var(--accent-text); }
+.place a { color: var(--text-1); }
 
 .section { display: flex; flex-direction: column; gap: var(--s-8); }
 .sectionTitle { margin: 0; }

@@ -11,7 +11,7 @@
 .sheet {
   width: 100%;
   max-width: 480px;
-  border-radius: var(--r-26);
+  border-radius: var(--r-28);
   padding: var(--s-24) var(--s-20) var(--s-20);
   background: var(--surface-1);
   border: 1px solid var(--border);

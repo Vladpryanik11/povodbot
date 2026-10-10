@@ -22,12 +22,12 @@
 }
 .option:active:not(:disabled) { transform: scale(0.98); }
 .option:disabled { cursor: default; }
-.chosen { border: 2px solid var(--accent); }
-.bar { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 18%, transparent); transition: width 300ms ease; }
+.chosen { border: 2px solid var(--btn-primary); }
+.bar { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--btn-primary) 18%, transparent); transition: width 300ms ease; }
 .label { position: relative; display: inline-flex; align-items: center; gap: var(--s-8); font: 500 0.9375rem/1.375rem var(--font-body); }
-.label svg { color: var(--accent-text); }
+.label svg { color: var(--text-1); }
 .percent { position: relative; font: 700 0.875rem/1.25rem var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-2); }
-.chosen .percent { color: var(--accent-text); }
+.chosen .percent { color: var(--text-1); }
 .error { margin: 0; color: var(--error); font: 500 0.8125rem/1.125rem var(--font-body); }
 .note { margin: 0; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
 .note strong { color: var(--text-1); font-weight: 600; }

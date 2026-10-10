@@ -24,7 +24,7 @@
   color: var(--on-photo);
 }
 .tile:nth-child(even) { transform: translateY(var(--s-24)); }
-.brand { margin: 0; color: var(--accent-text); }
+.brand { margin: 0; color: var(--text-1); }
 .title { margin: 0; }
 .text { margin: 0; color: var(--text-2); font: 400 1rem/1.5rem var(--font-body); }
 .owner { margin: 0; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
