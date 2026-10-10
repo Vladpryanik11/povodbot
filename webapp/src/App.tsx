@@ -5,6 +5,7 @@ import { Favorites } from './screens/Favorites';
 import { Home } from './screens/Home';
 import { MockPay } from './screens/MockPay';
 import { OrderScreen } from './screens/OrderScreen';
+import { Cabinet } from './screens/Cabinet';
 import { ClaimScreen } from './screens/ClaimScreen';
 import { TicketScreen } from './screens/TicketScreen';
 import { useTheme } from './telegram/hooks';
@@ -29,7 +30,7 @@ export function App() {
             <Route path="/order/:id" element={<OrderScreen />} />
             <Route path="/mock-pay/:id" element={<MockPay />} />
             <Route path="/favorites" element={<Favorites />} />
-            <Route path="/me" element={null} />
+            <Route path="/me" element={<Cabinet />} />
             <Route path="/tickets" element={<Navigate to="/me" replace />} />
             <Route path="/tickets/:id" element={<TicketScreen />} />
             <Route path="/claim/:token" element={<ClaimScreen />} />

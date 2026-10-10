@@ -13,7 +13,7 @@ import { Dialog } from './Dialog';
 import { FilterChips } from './FilterChips';
 import { Glow, GlowProvider, useGlow } from './Glow';
 import { BottomBar } from './BottomBar';
-import { Poster } from './Poster';
+import { PosterImage } from './PosterImage';
 import { StatusPill } from './StatusPill';
 import { Stepper } from './Stepper';
 import { TabBar } from './TabBar';
@@ -42,40 +42,29 @@ describe('Stepper', () => {
   });
 });
 
-describe('Poster', () => {
+describe('PosterImage', () => {
   it('falls back to a coloured block with the direction icon when there is no photo', () => {
-    render(<Poster poster={null} title="Настолки до утра" ratio="4:5" icon="book" />);
-    const block = screen.getByTestId('poster');
+    render(<PosterImage poster={null} color={posterColor('Настолки до утра')} icon="book" />);
+    const block = screen.getByTestId('poster-fallback');
     expect(block.style.backgroundColor).toBe(hexToRgb(posterColor('Настолки до утра')));
-    expect(block.querySelector('img')).toBeNull();
     expect(block.querySelector('svg')).not.toBeNull();
   });
 
-  it('shows the photo at the focus point under a scrim', () => {
-    render(
-      <Poster
-        poster={{ url: './mock/kino.jpg', width: 800, height: 1000, focusX: 0.3, focusY: 0.4 }}
-        title="Повод для киновечера"
-        ratio="2:1"
-        icon="film"
-      />,
+  it('shows the photo at the focus point', () => {
+    const view = render(
+      <PosterImage poster={{ url: './mock/kino.jpg', width: 800, height: 1000, focusX: 0.3, focusY: 0.4 }} color="#000000" icon="film" />,
     );
-    const img = screen.getByTestId('poster').querySelector('img')!;
+    const img = view.container.querySelector('img')!;
     expect(img).not.toBeNull();
     expect(img.style.objectPosition).toBe('30% 40%');
-    expect(screen.getByTestId('scrim')).toBeInTheDocument();
   });
 
   it('treats a photo with a short side under 600 px as missing', () => {
-    render(
-      <Poster
-        poster={{ url: './mock/tiny.jpg', width: 400, height: 500, focusX: 0.5, focusY: 0.5 }}
-        title="Кино"
-        ratio="4:5"
-        icon="film"
-      />,
+    const view = render(
+      <PosterImage poster={{ url: './mock/tiny.jpg', width: 400, height: 500, focusX: 0.5, focusY: 0.5 }} color="#000000" icon="film" />,
     );
-    expect(screen.getByTestId('poster').querySelector('img')).toBeNull();
+    expect(view.container.querySelector('img')).toBeNull();
+    expect(screen.getByTestId('poster-fallback')).toBeInTheDocument();
   });
 });
 

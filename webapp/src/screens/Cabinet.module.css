@@ -1,0 +1,72 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: calc(var(--s-24) + env(safe-area-inset-top)) var(--s-16) var(--s-24);
+  overflow-x: clip;
+}
+
+.profile { display: flex; flex-direction: column; align-items: center; gap: var(--s-8); text-align: center; }
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--text-1);
+  font: 700 1.75rem/2rem var(--font-display);
+}
+.name { margin: 0; }
+.evenings { margin: 0; color: var(--text-2); font: 500 0.9375rem/1.25rem var(--font-body); }
+
+.section { display: flex; flex-direction: column; gap: var(--s-12); }
+.heading { margin: 0; }
+/* The ticket is screen − 48; neighbours peek into the gutters. */
+.fan { padding: 0 var(--s-8); }
+
+.empty { padding: var(--s-16); border-radius: var(--r-16); background: var(--surface-1); border: 1px solid var(--border); }
+.emptyTitle { margin: 0 0 var(--s-4); }
+.emptyText { margin: 0; color: var(--text-2); }
+
+.past { border-radius: var(--r-16); background: var(--surface-1); border: 1px solid var(--border); }
+.pastSummary {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 0 var(--s-16);
+  font: 500 0.9375rem/1.375rem var(--font-body);
+  cursor: pointer;
+}
+.pastList { list-style: none; margin: 0; padding: 0 0 var(--s-8); }
+.pastRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--s-8) var(--s-16);
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+.pastTitle { font: 500 0.9375rem/1.25rem var(--font-body); }
+.pastMeta { font: 500 0.8125rem/1rem var(--font-body); color: var(--text-2); }
+
+/* Souvenirs: torn tickets at half size in a horizontal row. */
+.souvenirs {
+  display: flex;
+  gap: var(--s-12);
+  margin: 0 calc(-1 * var(--s-16));
+  padding: 0 var(--s-16) var(--s-8);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.souvenir { flex: none; width: 320px; zoom: 0.5; }
+
+.rows { display: flex; flex-direction: column; gap: var(--s-8); }
