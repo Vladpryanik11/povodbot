@@ -1,0 +1,24 @@
+.bar {
+  position: fixed;
+  left: var(--s-16);
+  right: var(--s-16);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 20;
+  max-width: 528px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-8);
+  border-radius: var(--r-pill);
+}
+.summary {
+  flex: 1;
+  min-width: 0;
+  padding-left: var(--s-8);
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.button { flex: none; border-radius: var(--r-pill); }

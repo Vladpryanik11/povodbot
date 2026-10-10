@@ -4,6 +4,8 @@ export interface MainButtonState {
   text: string;
   enabled: boolean;
   progress: boolean;
+  /** Left side of the page bottom bar: «2 билета · 3 100 ₽», «от 1 500 ₽». */
+  summary?: string;
   onClick: () => void;
 }
 
@@ -98,7 +100,7 @@ function createStore<T>(initial: T) {
   };
 }
 
-/** Current main button state, whoever draws it. Drives the in-page button and hides the tab bar. */
+/** Current bottom bar state; the page always draws it (spec v2 §5: Telegram's MainButton is not used). */
 export const mainButtonStore = createStore<MainButtonState | null>(null);
 
 function prefersDark(): boolean {

@@ -1,7 +1,0 @@
-.dock {
-  position: fixed;
-  left: var(--s-16);
-  right: var(--s-16);
-  bottom: max(var(--s-12), env(safe-area-inset-bottom));
-  z-index: 20;
-}

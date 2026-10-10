@@ -3,6 +3,9 @@ import { useTg } from '../telegram/hooks';
 import { HeartIcon, HomeIcon, ProfileIcon } from './icons/NavIcons';
 import styles from './TabBar.module.css';
 
+/** Screens that show the tab bar (and the «Сегодня» pill above it). */
+export const TAB_PATHS = new Set(['/', '/favorites', '/me']);
+
 const TABS = [
   { to: '/', label: 'Дом', Icon: HomeIcon, end: true },
   { to: '/favorites', label: 'Избранное', Icon: HeartIcon, end: false },

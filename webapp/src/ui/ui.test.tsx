@@ -12,11 +12,13 @@ import { DateStrip } from './DateStrip';
 import { Dialog } from './Dialog';
 import { FilterChips } from './FilterChips';
 import { Glow, GlowProvider, useGlow } from './Glow';
-import { InPageMainButton } from './InPageMainButton';
+import { BottomBar } from './BottomBar';
 import { Poster } from './Poster';
 import { StatusPill } from './StatusPill';
 import { Stepper } from './Stepper';
 import { TabBar } from './TabBar';
+import { pickTodayTicket } from './TodayPill';
+import type { Ticket } from '../api/types';
 
 describe('Stepper', () => {
   it('names the action and the count for screen readers', () => {
@@ -86,23 +88,64 @@ describe('Button', () => {
   });
 });
 
-describe('InPageMainButton', () => {
-  it('draws the main button inside the page outside Telegram', async () => {
-    const tg = createTg();
+describe('BottomBar', () => {
+  it('draws the page bottom bar with the summary and a white button, even inside Telegram', async () => {
+    const web = { colorScheme: 'dark', initDataUnsafe: {}, MainButton: {} } as unknown as Parameters<typeof createTg>[0];
     const onClick = vi.fn();
     render(
-      <TgProvider value={tg}>
-        <InPageMainButton />
+      <TgProvider value={createTg(web)}>
+        <BottomBar />
       </TgProvider>,
     );
-    act(() => tg.mainButton.set({ text: 'Выберите билеты', enabled: false, progress: false, onClick }));
-    expect(screen.getByRole('button', { name: 'Выберите билеты' })).toBeDisabled();
-    act(() => tg.mainButton.set({ text: 'Оплатить 1 550 ₽', enabled: true, progress: false, onClick }));
-    await userEvent.click(screen.getByRole('button', { name: 'Оплатить 1 550 ₽' }));
-    expect(onClick).toHaveBeenCalledTimes(1);
-    act(() => tg.mainButton.set(null));
-    expect(mainButtonStore.get()).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
+    act(() => mainButtonStore.set({ text: 'Купить', enabled: true, progress: false, summary: '2 билета · 3 100 ₽', onClick }));
+    expect(screen.getByText('2 билета · 3 100 ₽')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Купить' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    act(() => mainButtonStore.set({ text: 'Мест нет', enabled: false, progress: false, onClick }));
+    expect(screen.getByRole('button', { name: 'Мест нет' })).toBeDisabled();
+    act(() => mainButtonStore.set({ text: 'Купить', enabled: true, progress: true, onClick }));
+    expect(screen.getByRole('button', { name: 'Купить' })).toHaveAttribute('aria-busy', 'true');
+    act(() => mainButtonStore.set(null));
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('pickTodayTicket', () => {
+  const NOW = Date.parse('2026-10-10T09:00:00Z'); // 12:00 in Moscow
+  const ticket = (over: Partial<Ticket>): Ticket => ({
+    id: 'tk',
+    eventId: 'e',
+    eventTitle: 'Амели',
+    startsAt: '2026-10-10T20:00:00Z', // 23:00 Moscow, today
+    timezone: 'Europe/Moscow',
+    address: null,
+    mapUrl: null,
+    typeName: 'Стандарт',
+    position: 1,
+    ofCount: 1,
+    shortCode: '4821',
+    status: 'valid',
+    qrToken: 'pv1.tk',
+    poster: null,
+    ...over,
+  });
+
+  it('picks a valid ticket for an evening today', () => {
+    const t = ticket({ id: 'today' });
+    expect(pickTodayTicket([ticket({ id: 'later', startsAt: '2026-10-12T16:00:00Z' }), t], NOW)).toBe(t);
+  });
+
+  it('skips a ticket already used today', () => {
+    expect(pickTodayTicket([ticket({ status: 'used', qrToken: null })], NOW)).toBeNull();
+  });
+
+  it('skips an evening today that started more than 6 hours ago', () => {
+    expect(pickTodayTicket([ticket({ startsAt: '2026-10-10T02:00:00Z' })], NOW)).toBeNull();
+  });
+
+  it('skips an evening tomorrow', () => {
+    expect(pickTodayTicket([ticket({ startsAt: '2026-10-11T16:00:00Z' })], NOW)).toBeNull();
   });
 });
 

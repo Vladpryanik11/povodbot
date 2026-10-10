@@ -1,6 +1,7 @@
 .app {
   min-height: var(--tg-viewport-stable-height, 100dvh);
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  /* Clears the tab bar (12 + 56) plus the «Сегодня» pill or plaque above it (8 + 44). */
+  padding-bottom: calc(136px + env(safe-area-inset-bottom));
   max-width: 560px;
   margin: 0 auto;
 }

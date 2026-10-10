@@ -1,0 +1,32 @@
+.pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + 56px + 8px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  max-width: calc(100% - 2 * var(--s-16));
+  min-height: var(--tap);
+  padding: 0 var(--s-16) 0 var(--s-8);
+  border-radius: var(--r-pill);
+  color: var(--text-1);
+  text-decoration: none;
+  font: 500 0.9375rem/1.25rem var(--font-body);
+  white-space: nowrap;
+}
+.thumb {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.when { flex: none; font-variant-numeric: tabular-nums; }
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-2);
+}

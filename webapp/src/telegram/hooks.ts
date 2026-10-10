@@ -29,30 +29,28 @@ export function useTheme(): 'dark' {
 
 type MainButtonInput = Omit<MainButtonState, 'onClick'> & { onClick: () => void };
 
-/** Shows the main button while the calling screen is mounted. Re-registers only when text or state change. */
+/**
+ * Shows the page bottom bar while the calling screen is mounted. Re-registers only when text or state change.
+ * Writes to the store only: Telegram's MainButton can't be styled to match, so the page draws its own (spec v2 §5).
+ */
 export function useMainButton(state: MainButtonInput | null): void {
-  const tg = useTg();
   const latest = useRef(state?.onClick);
   latest.current = state?.onClick;
   const text = state?.text;
   const enabled = state?.enabled;
   const progress = state?.progress;
+  const summary = state?.summary;
   const visible = state !== null;
 
   useEffect(() => {
-    if (!visible) {
-      tg.mainButton.set(null);
-      return;
-    }
-    tg.mainButton.set({
-      text: text ?? '',
-      enabled: Boolean(enabled),
-      progress: Boolean(progress),
-      onClick: () => latest.current?.(),
-    });
-  }, [tg, visible, text, enabled, progress]);
+    mainButtonStore.set(
+      visible
+        ? { text: text ?? '', enabled: Boolean(enabled), progress: Boolean(progress), summary, onClick: () => latest.current?.() }
+        : null,
+    );
+  }, [visible, text, enabled, progress, summary]);
 
-  useEffect(() => () => tg.mainButton.set(null), [tg]);
+  useEffect(() => () => mainButtonStore.set(null), []);
 }
 
 export function useBackButton(onBack: (() => void) | null): void {

@@ -7,7 +7,7 @@ import type { AppApi } from '../api/AppApi';
 import { MockApi } from '../api/mock/MockApi';
 import { TgProvider } from '../telegram/hooks';
 import { createTg, type TgFacade } from '../telegram/tg';
-import { InPageMainButton } from '../ui/InPageMainButton';
+import { BottomBar } from '../ui/BottomBar';
 
 export const T0 = Date.parse('2026-10-10T09:00:00Z');
 
@@ -24,7 +24,7 @@ interface Options {
   path?: string;
 }
 
-/** Renders a screen with the same providers as the app, at a route, plus the in-page main button. */
+/** Renders a screen with the same providers as the app, at a route, plus the page bottom bar. */
 export function renderScreen(screen: ReactElement, options: Options = {}) {
   const api = options.api ?? new MockApi({ latencyMs: 0, now: () => T0 });
   const tg = options.tg ?? createTg();
@@ -40,7 +40,7 @@ export function renderScreen(screen: ReactElement, options: Options = {}) {
               <Route path="*" element={null} />
             </Routes>
             <Where />
-            <InPageMainButton />
+            <BottomBar />
           </MemoryRouter>
         </ApiProvider>
       </TgProvider>

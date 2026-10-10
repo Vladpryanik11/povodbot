@@ -9,11 +9,10 @@ import { ClaimScreen } from './screens/ClaimScreen';
 import { TicketScreen } from './screens/TicketScreen';
 import { useTheme } from './telegram/hooks';
 import { Glow, GlowProvider } from './ui/Glow';
-import { InPageMainButton } from './ui/InPageMainButton';
-import { TabBar } from './ui/TabBar';
+import { BottomBar } from './ui/BottomBar';
+import { TAB_PATHS, TabBar } from './ui/TabBar';
+import { TodayPill } from './ui/TodayPill';
 import styles from './App.module.css';
-
-export const TAB_PATHS = new Set(['/', '/favorites', '/me']);
 
 export function App() {
   useTheme();
@@ -37,9 +36,10 @@ export function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
+        <TodayPill />
         <TabBar hidden={!TAB_PATHS.has(pathname)} />
       </StartGate>
-      <InPageMainButton />
+      <BottomBar />
     </GlowProvider>
   );
 }
