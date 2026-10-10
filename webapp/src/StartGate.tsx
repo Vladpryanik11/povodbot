@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from './api/ApiProvider';
 import type { Me } from './api/types';
 import { ACTIVE_ORDER_KEY, resolveStart } from './start';
@@ -14,6 +14,7 @@ export function StartGate({ children }: { children: ReactNode }) {
   const api = useApi();
   const tg = useTg();
   const navigate = useNavigate();
+  const location = useLocation();
   const [phase, setPhase] = useState<Phase>('loading');
   const me = useRef<Me | null>(null);
   const started = useRef(false);
@@ -33,12 +34,17 @@ export function StartGate({ children }: { children: ReactNode }) {
           }
         }
       }
+      // Nothing to open on purpose: stay where the app was (re)loaded.
+      if (path === '/' && location.pathname !== '/') {
+        setPhase('ready');
+        return;
+      }
       // A deep link sits on top of the afisha, so «назад» leads there.
       navigate('/', { replace: true });
       if (path !== '/') navigate(path);
       setPhase('ready');
     },
-    [api, tg, navigate],
+    [api, tg, navigate, location.pathname],
   );
 
   useEffect(() => {

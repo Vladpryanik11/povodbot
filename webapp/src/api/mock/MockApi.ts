@@ -174,7 +174,9 @@ export class MockApi implements AppApi {
       const claimed: Ticket = { ...original, id: `${original.id}-friend`, status: 'valid' };
       original.status = 'transferred';
       original.qrToken = null;
-      return claimed;
+      // One guest plays both sides in the mock, so the friend's copy lands in the same list.
+      this.data.tickets.push(claimed);
+      return { ...claimed };
     });
   }
 

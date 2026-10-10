@@ -4,6 +4,9 @@ import { Afisha } from './screens/Afisha';
 import { EventScreen } from './screens/EventScreen';
 import { MockPay } from './screens/MockPay';
 import { OrderScreen } from './screens/OrderScreen';
+import { ClaimScreen } from './screens/ClaimScreen';
+import { Tickets } from './screens/Tickets';
+import { TicketScreen } from './screens/TicketScreen';
 import { Kit } from './screens/Kit';
 import { useMainButtonState, useTheme } from './telegram/hooks';
 import { InPageMainButton } from './ui/InPageMainButton';
@@ -30,9 +33,9 @@ export function App() {
             <Route path="/events/:id" element={<EventScreen />} />
             <Route path="/order/:id" element={<OrderScreen />} />
             <Route path="/mock-pay/:id" element={<MockPay />} />
-            <Route path="/tickets" element={<Soon title="Билеты" />} />
-            <Route path="/tickets/:id" element={<Soon title="Билет" />} />
-            <Route path="/claim/:token" element={<Soon title="Билет от друга" />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/tickets/:id" element={<TicketScreen />} />
+            <Route path="/claim/:token" element={<ClaimScreen />} />
             <Route path="/polls" element={<Soon title="Голосуем" />} />
             {import.meta.env.DEV ? <Route path="/kit" element={<Kit />} /> : null}
             <Route path="*" element={<Soon title="Такой страницы нет" />} />

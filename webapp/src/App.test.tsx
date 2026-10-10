@@ -15,13 +15,13 @@ function Where() {
   return <output data-testid="where">{useLocation().pathname}</output>;
 }
 
-function renderApp(api: MockApi, tg: TgFacade) {
+function renderApp(api: MockApi, tg: TgFacade, at = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={client}>
       <TgProvider value={tg}>
         <ApiProvider api={api}>
-          <MemoryRouter>
+          <MemoryRouter initialEntries={[at]}>
             <App />
             <Where />
           </MemoryRouter>
@@ -64,5 +64,12 @@ describe('App start', () => {
 
     renderApp(api, tg);
     expect(await screen.findByText(`/order/${order.id}`, { selector: 'output' })).toBeInTheDocument();
+  });
+
+  it('stays on the screen it was reloaded on when there is no link or reservation', async () => {
+    localStorage.setItem('povod.mock.welcome', '1');
+    renderApp(new MockApi({ latencyMs: 0, now: () => T0 }), tgWithStart(null), '/tickets');
+    expect(await screen.findByRole('heading', { name: 'Билеты' })).toBeInTheDocument();
+    expect(screen.getByText('/tickets', { selector: 'output' })).toBeInTheDocument();
   });
 });

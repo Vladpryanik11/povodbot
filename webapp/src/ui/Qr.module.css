@@ -1,0 +1,8 @@
+.plate {
+  padding: 16px;
+  border-radius: var(--r-20);
+  background: #ffffff;
+  box-sizing: content-box;
+  margin: 0 auto;
+}
+.plate svg { display: block; width: 100%; height: 100%; }
