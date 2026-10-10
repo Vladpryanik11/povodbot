@@ -1,0 +1,7 @@
+.app {
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  max-width: 560px;
+  margin: 0 auto;
+}
+.soon { padding: var(--s-24) var(--s-16); color: var(--text-2); }
