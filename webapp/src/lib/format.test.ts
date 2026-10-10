@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime, formatPrice, formatTime, seatsLabel, ticketsLabel } from './format';
+import { dayKey, formatDate, formatDateTime, formatPrice, formatTime, seatsLabel, shortDay, ticketsLabel } from './format';
 
 const NB = ' ';
 
@@ -47,5 +47,17 @@ describe('formatPrice', () => {
     expect(formatPrice(155000)).toBe(`1${NB}550${NB}₽`);
     expect(formatPrice(310000)).toBe(`3${NB}100${NB}₽`);
     expect(formatPrice(90000)).toBe(`900${NB}₽`);
+  });
+});
+
+describe('day keys', () => {
+  it('takes the Moscow date of an instant', () => {
+    expect(dayKey('2026-10-10T21:30:00Z', 'Europe/Moscow')).toBe('2026-10-11');
+    expect(dayKey('2026-10-10T20:59:00Z', 'Europe/Moscow')).toBe('2026-10-10');
+  });
+
+  it('names the weekday and the day of a key', () => {
+    expect(shortDay('2026-10-12')).toEqual({ dow: 'пн', day: 12 });
+    expect(shortDay('2026-10-18')).toEqual({ dow: 'вс', day: 18 });
   });
 });

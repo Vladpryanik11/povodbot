@@ -1,0 +1,23 @@
+.row {
+  display: flex;
+  gap: var(--s-8);
+  overflow-x: auto;
+  padding: 0 var(--s-16);
+  scrollbar-width: none;
+}
+.row::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--s-16);
+  border-radius: var(--r-pill);
+  color: var(--text-1);
+  font: 500 0.9375rem/1.25rem var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.on {
+  background: var(--btn-primary);
+  color: var(--on-btn-primary);
+  border: 1px solid var(--btn-primary);
+}

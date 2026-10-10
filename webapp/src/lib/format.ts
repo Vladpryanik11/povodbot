@@ -50,3 +50,19 @@ export function formatPrice(kopecks: number): string {
     .replace(/[\s ]/g, NBSP);
   return `${grouped}${NBSP}₽`;
 }
+
+/** 'YYYY-MM-DD' of the instant in the event timezone; keys compare as strings. */
+export function dayKey(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(
+    new Date(iso),
+  );
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+/** Weekday and day number of a day key, for the date strip: { dow: 'пн', day: 12 }. */
+export function shortDay(key: string): { dow: string; day: number } {
+  const date = new Date(`${key}T12:00:00Z`);
+  const dow = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' }).format(date).replace('.', '');
+  return { dow, day: date.getUTCDate() };
+}

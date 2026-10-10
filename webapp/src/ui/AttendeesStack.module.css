@@ -1,0 +1,15 @@
+.stack { display: inline-flex; align-items: center; }
+.face {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+.face + .face { margin-left: -6px; }
+.more {
+  margin-left: 6px;
+  color: #ffffff;
+  font: 500 0.8125rem/1rem var(--font-body);
+}

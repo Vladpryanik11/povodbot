@@ -7,10 +7,14 @@ import { posterColor } from '../lib/posterColor';
 import { createTg, mainButtonStore } from '../telegram/tg';
 import { TgProvider } from '../telegram/hooks';
 import { Button } from './Button';
+import { AttendeesStack } from './AttendeesStack';
+import { DateStrip } from './DateStrip';
 import { Dialog } from './Dialog';
+import { FilterChips } from './FilterChips';
 import { Glow, GlowProvider, useGlow } from './Glow';
 import { InPageMainButton } from './InPageMainButton';
 import { Poster } from './Poster';
+import { StatusPill } from './StatusPill';
 import { Stepper } from './Stepper';
 import { TabBar } from './TabBar';
 
@@ -187,5 +191,68 @@ describe('Glow', () => {
     );
     expect(document.documentElement.style.getPropertyValue('--poster')).toBe('');
     expect(view.container.querySelector('[data-glow]')).toHaveAttribute('data-off');
+  });
+});
+
+describe('StatusPill', () => {
+  it('says today, seats left or sold out; the dot only where there is a colour to show', () => {
+    const { container, rerender } = render(<StatusPill kind="today" />);
+    expect(screen.getByText('Сегодня')).toBeInTheDocument();
+    expect(container.querySelector('[data-dot]')).not.toBeNull();
+    rerender(<StatusPill kind="left" count={12} />);
+    expect(screen.getByText('Осталось 12')).toBeInTheDocument();
+    rerender(<StatusPill kind="soldout" />);
+    expect(screen.getByText('Мест нет')).toBeInTheDocument();
+    expect(container.querySelector('[data-dot]')).toBeNull();
+  });
+});
+
+describe('AttendeesStack', () => {
+  it('shows up to three faces and counts the rest', () => {
+    render(<AttendeesStack count={23} avatars={['/a.svg', '/b.svg', '/c.svg']} />);
+    expect(screen.getByText('+20')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Идут 23 человека' })).toBeInTheDocument();
+  });
+
+  it('renders nothing when nobody is going', () => {
+    const { container } = render(<AttendeesStack count={0} avatars={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('FilterChips', () => {
+  const items = [
+    { id: 'd-film', title: 'Киновечер' },
+    { id: 'd-workshop', title: 'Мастерклассы' },
+  ];
+
+  it('picks a direction and «Все» resets it', async () => {
+    const onChange = vi.fn();
+    render(<FilterChips items={items} value="d-film" onChange={onChange} />);
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Киновечер' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(screen.getByRole('radio', { name: 'Мастерклассы' }));
+    expect(onChange).toHaveBeenLastCalledWith('d-workshop');
+    await userEvent.click(screen.getByRole('radio', { name: 'Все' }));
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe('DateStrip', () => {
+  const from = Date.parse('2026-10-10T09:00:00Z');
+
+  it('marks days with events and a second tap on the chosen day clears it', async () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <DateStrip from={from} days={14} marked={new Set(['2026-10-12'])} value="2026-10-12" onChange={onChange} />,
+    );
+    expect(screen.getAllByRole('button')).toHaveLength(14);
+    expect(container.querySelectorAll('[data-marked]')).toHaveLength(1);
+    const monday = screen.getByRole('button', { name: 'пн 12' });
+    expect(monday).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(monday);
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    await userEvent.click(screen.getByRole('button', { name: 'вт 13' }));
+    expect(onChange).toHaveBeenLastCalledWith('2026-10-13');
   });
 });

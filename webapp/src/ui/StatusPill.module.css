@@ -1,0 +1,18 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  font: 500 0.8125rem/1rem var(--font-body);
+  white-space: nowrap;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--poster, #ffffff);
+}
