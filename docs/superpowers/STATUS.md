@@ -15,7 +15,7 @@
 
 ## Следующие шаги (на выбор владельца)
 
-1. **В работе — визуал v2.** Спека `specs/2026-10-11-povod-miniapp-visual-v2-design.md`, план `plans/2026-10-11-povod-miniapp-visual-v2.md`. Владелец выбрал нативное выполнение (`superpowers:executing-plans`), две сессии: задачи 1–8, затем 9–14. Иконки меню владельца: `C:\Users\Влад\Downloads\{home,heart,profile}.svg`.
+1. **В работе — визуал v2.** Спека `specs/2026-10-11-povod-miniapp-visual-v2-design.md`, план `plans/2026-10-11-povod-miniapp-visual-v2.md`. Владелец выбрал нативное выполнение (`superpowers:executing-plans`), две сессии: задачи 1–8, затем 9–14. **Задачи 1–8 готовы (2026-10-11, 138 тестов зелёные):** токены и шрифты, цвет афиши, mock-данные, ореол, таб-бар, избранное, мелкие компоненты, Дом. Дальше — задачи 9–14 и финальное ревью ветки; журнал с решениями — `.superpowers/sdd/2026-10-11-povod-miniapp-visual-v2/progress.md` (git-ignored, строки `Ruling:`). Иконки меню владельца лежат в `webapp/src/ui/icons/`.
 2. Этап Б: настоящий API в бэкенде по контракту `AppApi`, авторизация по `initData`, оплата T-Bank. Начинать с `superpowers:brainstorming`.
 3. Отложенные минорные замечания (ниже) — одной волной.
 
