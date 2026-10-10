@@ -1,6 +1,6 @@
 # Повод — заметки для Claude
 
-Процесс — obra/superpowers, только навыки `superpowers:*` (wizard, beads, sdd, research не использовать).
+Процесс — obra/superpowers, навыки `superpowers:*`; для UX-работы (исследование, персоны, CJM, JTBD, валидация) — `ux-superpowers:*` (wizard, beads, sdd, research не использовать).
 
 ## Где что
 
