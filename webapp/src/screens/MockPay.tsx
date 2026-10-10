@@ -25,7 +25,8 @@ export function MockPay() {
   };
 
   return (
-    <main className={styles.page}>
+    // The bank page is always light, whatever the Telegram theme.
+    <main className={styles.page} data-theme="light">
       <p className={styles.badge}>Тестовая оплата</p>
       <h1 className={styles.title}>Оплата заказа</h1>
       <p className={styles.amount}>{order.data ? formatPrice(order.data.totalKopecks) : '…'}</p>
