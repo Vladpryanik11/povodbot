@@ -1,0 +1,17 @@
+.fav {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--r-pill);
+  color: #ffffff;
+  cursor: pointer;
+}
+/* Tap zone stays ≥ 44 px around the smaller visual circle. */
+.fav::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+.fav svg { width: 20px; height: 20px; }

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { StartGate } from './StartGate';
 import { Afisha } from './screens/Afisha';
 import { EventScreen } from './screens/EventScreen';
+import { Favorites } from './screens/Favorites';
 import { MockPay } from './screens/MockPay';
 import { OrderScreen } from './screens/OrderScreen';
 import { ClaimScreen } from './screens/ClaimScreen';
@@ -28,7 +29,7 @@ export function App() {
             <Route path="/events/:id" element={<EventScreen />} />
             <Route path="/order/:id" element={<OrderScreen />} />
             <Route path="/mock-pay/:id" element={<MockPay />} />
-            <Route path="/favorites" element={null} />
+            <Route path="/favorites" element={<Favorites />} />
             <Route path="/me" element={null} />
             <Route path="/tickets" element={<Navigate to="/me" replace />} />
             <Route path="/tickets/:id" element={<TicketScreen />} />
