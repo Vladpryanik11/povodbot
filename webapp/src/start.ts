@@ -3,6 +3,11 @@ import type { Me } from './api/types';
 /** Phone-side copy of the live order id (CloudStorage in Telegram), in case the server forgets it. */
 export const ACTIVE_ORDER_KEY = 'activeOrderId';
 
+/** Telegram opens the app with '#tgWebAppData=…'; anything that is not an app route becomes '#/'. */
+export function normalizeLaunchHash(hash: string): string | null {
+  return hash.startsWith('#/') ? null : '#/';
+}
+
 const ROUTES: Record<string, (id: string) => string> = {
   event: (id) => `/events/${id}`,
   order: (id) => `/order/${id}`,

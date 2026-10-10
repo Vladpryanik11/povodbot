@@ -1,7 +1,9 @@
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../api/AppApi';
 import { MockApi, type Scenario } from '../api/mock/MockApi';
+import { ticketCache } from '../lib/ticketCache';
 import { createTg } from '../telegram/tg';
 import { renderScreen, T0 } from '../test/render';
 import { OrderScreen } from './OrderScreen';
@@ -126,5 +128,42 @@ describe('OrderScreen after the bank', () => {
     expect(
       await screen.findByText('Оплата дошла после окончания брони. Администратор проверит и напишет вам сегодня.'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('OrderScreen review fixes', () => {
+  it('saves the new tickets on the phone as soon as the order is paid', async () => {
+    const ctx = await setup('happy', 'paid');
+    open(ctx);
+    await screen.findByText('Билеты у вас');
+    await advance(100);
+    expect(ticketCache.load().filter((t) => t.id.startsWith(`${ctx.order.id}-`))).toHaveLength(2);
+  });
+
+  it('keeps asking the server after a failed attempt, so a later payment is noticed', async () => {
+    const ctx = await setup('happy', 'failed');
+    open(ctx);
+    await screen.findByText('Оплата не прошла');
+    await ctx.api.completePayment(ctx.order.id, 'paid');
+    await advance(3500);
+    expect(await screen.findByText('Билеты у вас')).toBeInTheDocument();
+  });
+
+  it('says when cancelling the reservation did not work', async () => {
+    const ctx = await setup();
+    vi.spyOn(ctx.api, 'cancelOrder').mockRejectedValue(new ApiError('network'));
+    open(ctx);
+    await user().click(await screen.findByRole('button', { name: 'Отменить бронь' }));
+    await user().click(screen.getByRole('button', { name: 'Отменить' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Не получилось отменить бронь. Проверьте интернет и попробуйте ещё раз.',
+    );
+  });
+
+  it('explains an unknown order instead of blaming the connection', async () => {
+    const api = new MockApi({ latencyMs: 0 });
+    renderScreen(<OrderScreen />, { api, at: '/order/o-404', path: '/order/:id' });
+    expect(await screen.findByText('Заказ не найден')).toBeInTheDocument();
+    expect(screen.queryByText('Нет связи')).toBeNull();
   });
 });

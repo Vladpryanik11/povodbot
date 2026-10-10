@@ -14,6 +14,7 @@ const TILES = [
 /** Shown once. The owner will add the consent wording into the owner slot later (spec §2). */
 export function Welcome({ onAccept }: { onAccept: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   useMainButton({
     text: 'Заходим',
     enabled: !busy,
@@ -21,7 +22,11 @@ export function Welcome({ onAccept }: { onAccept: () => Promise<void> }) {
     onClick: () => {
       if (busy) return;
       setBusy(true);
-      onAccept().catch(() => setBusy(false));
+      setFailed(false);
+      onAccept().catch(() => {
+        setBusy(false);
+        setFailed(true);
+      });
     },
   });
 
@@ -44,6 +49,11 @@ export function Welcome({ onAccept }: { onAccept: () => Promise<void> }) {
         билет и голосуют, что смотрим и во что играем.
       </p>
       <p className={styles.owner} data-slot="owner-consent" />
+      {failed ? (
+        <p className={styles.error} role="alert">
+          Не получилось. Проверьте интернет и попробуйте ещё раз.
+        </p>
+      ) : null}
     </main>
   );
 }

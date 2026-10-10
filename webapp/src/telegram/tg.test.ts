@@ -113,3 +113,17 @@ describe('createTg with Telegram WebApp', () => {
     expect(() => createTg(old).setChromeColor('#0F0E12')).not.toThrow();
   });
 });
+
+describe('main button colours', () => {
+  it('paints the native main button in the club accent and mutes it when disabled', () => {
+    const web = fakeWebApp();
+    const setParams = vi.fn();
+    (web.MainButton as unknown as { setParams: typeof setParams }).setParams = setParams;
+    const tg = createTg(web);
+    tg.mainButton.set({ text: 'Оплатить 1 550 ₽', enabled: true, progress: false, onClick: vi.fn() });
+    expect(setParams).toHaveBeenLastCalledWith({ color: '#FF7A3D', text_color: '#2B1205' });
+    tg.mainButton.set({ text: 'Выберите билеты', enabled: false, progress: false, onClick: vi.fn() });
+    expect(setParams).toHaveBeenLastCalledWith({ color: '#2A262F', text_color: '#BDB6AE' });
+    tg.mainButton.set(null);
+  });
+});

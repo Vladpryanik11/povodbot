@@ -1,6 +1,7 @@
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { buildFixtures } from '../api/mock/fixtures';
 import { MockApi } from '../api/mock/MockApi';
 import { createTg } from '../telegram/tg';
 import { renderScreen, T0 } from '../test/render';
@@ -94,5 +95,22 @@ describe('EventScreen', () => {
     await screen.findByRole('heading', { name: 'Повод для киновечера' });
     await add();
     expect(impact).toHaveBeenCalledWith('light');
+  });
+});
+
+describe('EventScreen edge cases', () => {
+  it('marks a very long title so it shrinks and wraps', async () => {
+    const fixtures = buildFixtures(T0);
+    fixtures.events[0].title = 'Интеллектуальная викторина о самом главном в нашем городе';
+    renderScreen(<EventScreen />, { ...at('e-film'), api: new MockApi({ latencyMs: 0, now: () => T0, fixtures }) });
+    expect(await screen.findByRole('heading', { name: fixtures.events[0].title })).toHaveAttribute('data-long', 'true');
+  });
+
+  it('explains an evening that no longer exists and leads to the afisha', async () => {
+    renderScreen(<EventScreen />, at('e-gone'));
+    expect(await screen.findByText('Вечер не найден')).toBeInTheDocument();
+    expect(screen.queryByText('Нет связи')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'К афише' }));
+    expect(await screen.findByText('/', { selector: 'output' })).toBeInTheDocument();
   });
 });

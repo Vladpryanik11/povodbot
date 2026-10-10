@@ -73,3 +73,20 @@ describe('App start', () => {
     expect(screen.getByText('/tickets', { selector: 'output' })).toBeInTheDocument();
   });
 });
+
+describe('App resilience', () => {
+  it('sends an unknown route to the afisha instead of a dead end', async () => {
+    localStorage.setItem('povod.mock.welcome', '1');
+    renderApp(new MockApi({ latencyMs: 0, now: () => T0 }), tgWithStart(null), '/tgWebAppData=abc&tgWebAppVersion=7');
+    expect(await screen.findByText('/', { selector: 'output' })).toBeInTheDocument();
+    expect(screen.queryByText('Такой страницы нет')).toBeNull();
+  });
+
+  it('tells the guest when accepting the welcome fails', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    vi.spyOn(api, 'acceptWelcome').mockRejectedValue(new Error('offline'));
+    renderApp(api, tgWithStart(null));
+    await userEvent.click(await screen.findByRole('button', { name: 'Заходим' }));
+    expect(await screen.findByText('Не получилось. Проверьте интернет и попробуйте ещё раз.')).toBeInTheDocument();
+  });
+});

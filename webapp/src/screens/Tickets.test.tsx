@@ -100,3 +100,12 @@ describe('Claim screen', () => {
     expect(await screen.findByText('Этот билет уже забрал другой гость')).toBeInTheDocument();
   });
 });
+
+describe('Tickets from the phone', () => {
+  it('shows saved tickets right away while the server is slow', async () => {
+    const online = new MockApi({ latencyMs: 0, now: () => T0 });
+    ticketCache.save(await online.tickets());
+    renderScreen(<Tickets />, { at: '/tickets', api: new MockApi({ latencyMs: 60_000, now: () => T0 }) });
+    expect(await screen.findByRole('heading', { name: 'Ближайшие' })).toBeInTheDocument();
+  });
+});

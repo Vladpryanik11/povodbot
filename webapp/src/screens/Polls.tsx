@@ -11,7 +11,7 @@ import styles from './Polls.module.css';
 export function Polls() {
   const api = useApi();
   const polls = useQuery({ queryKey: ['polls'], queryFn: () => api.polls() });
-  const { vote, closedNow, pending } = usePollVote();
+  const { vote, closedNow, failed, pending } = usePollVote();
 
   if (polls.isError) {
     return (
@@ -46,6 +46,7 @@ export function Polls() {
           key={poll.id}
           poll={poll}
           closedNow={closedNow.has(poll.id)}
+          failed={failed.has(poll.id)}
           busy={pending === poll.id}
           onVote={(optionId) => void vote(poll, optionId)}
         />

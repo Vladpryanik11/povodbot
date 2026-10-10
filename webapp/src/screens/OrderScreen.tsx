@@ -3,13 +3,16 @@ import { CircleCheck, Hourglass, Landmark, TimerOff, TriangleAlert, type LucideI
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
+import { ApiError } from '../api/AppApi';
 import type { Order } from '../api/types';
 import { formatLeft } from '../checkout/useCountdown';
 import { formatDate, formatPrice, formatTime, plural, ticketsLabel } from '../lib/format';
 import { ACTIVE_ORDER_KEY } from '../start';
 import { useBackButton, useMainButton, useTg } from '../telegram/hooks';
+import { ticketsQuery } from '../tickets/useTickets';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
+import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { Skeleton } from '../ui/Skeleton';
 import styles from './OrderScreen.module.css';
@@ -56,10 +59,15 @@ export function OrderScreen() {
   const now = useNow();
   const [mountedAt] = useState(() => Date.now());
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const order = useQuery({
     queryKey: ['order', id],
     queryFn: () => api.order(id),
-    refetchInterval: (query) => (query.state.data?.status === 'pending' ? 3000 : false),
+    // A failed attempt can still turn into a payment when the guest retries on the bank page.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'pending' || status === 'failed' ? 3000 : false;
+    },
   });
 
   const view = order.data ? viewOf(order.data, now, mountedAt) : null;
@@ -71,10 +79,14 @@ export function OrderScreen() {
     if (view === 'paid') tg.haptic.notify('success');
     if (view === 'failed') tg.haptic.notify('error');
     if (view === 'expired') tg.haptic.notify('warning');
+    if (view === 'paid') void queryClient.prefetchQuery(ticketsQuery(api));
+    // The local clock ran out: ask the server once more before believing it.
+    if (view === 'expired' && (order.data?.status === 'pending' || order.data?.status === 'failed')) {
+      void order.refetch();
+    }
     if (!live) {
       void tg.storage.set(ACTIVE_ORDER_KEY, '');
       void queryClient.invalidateQueries({ queryKey: ['me'] });
-      void queryClient.invalidateQueries({ queryKey: ['tickets'] });
     }
     // Only the change of view matters here, not every tick of the clock.
   }, [view]);
@@ -99,6 +111,15 @@ export function OrderScreen() {
                 : null,
   );
 
+  if (order.error instanceof ApiError && order.error.code === 'not_found') {
+    return (
+      <EmptyState
+        title="Заказ не найден"
+        text="Возможно, ссылка устарела. Билеты, если они есть, — во вкладке «Билеты»."
+        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+      />
+    );
+  }
   if (order.isError) {
     return (
       <ErrorState
@@ -125,7 +146,17 @@ export function OrderScreen() {
 
   const cancel = async () => {
     setConfirmCancel(false);
-    await api.cancelOrder(data.id);
+    setCancelError(null);
+    try {
+      await api.cancelOrder(data.id);
+    } catch (error) {
+      setCancelError(
+        error instanceof ApiError && error.code === 'payment_uncertain'
+          ? 'Банк ещё не ответил — отменить бронь пока нельзя.'
+          : 'Не получилось отменить бронь. Проверьте интернет и попробуйте ещё раз.',
+      );
+      return;
+    }
     tg.closingConfirmation(false);
     await tg.storage.set(ACTIVE_ORDER_KEY, '');
     await queryClient.invalidateQueries();
@@ -201,6 +232,12 @@ export function OrderScreen() {
         <Button variant="link" onClick={() => setConfirmCancel(true)}>
           Отменить бронь
         </Button>
+      ) : null}
+
+      {cancelError ? (
+        <p className={styles.error} role="alert">
+          {cancelError}
+        </p>
       ) : null}
 
       {confirmCancel ? (

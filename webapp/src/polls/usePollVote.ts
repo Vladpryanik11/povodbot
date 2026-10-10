@@ -12,11 +12,17 @@ export function usePollVote() {
   const queryClient = useQueryClient();
   const [closedNow, setClosedNow] = useState<ReadonlySet<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null);
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
 
   const vote = async (poll: Poll, optionId: string) => {
     if (pending) return;
     tg.haptic.selection();
     setPending(poll.id);
+    setFailed((ids) => {
+      const next = new Set(ids);
+      next.delete(poll.id);
+      return next;
+    });
     try {
       const updated = await api.vote(poll.id, optionId);
       queryClient.setQueryData<Poll[]>(['polls'], (old) => old?.map((p) => (p.id === updated.id ? updated : p)));
@@ -26,11 +32,14 @@ export function usePollVote() {
     } catch (error) {
       if (error instanceof ApiError && error.code === 'poll_closed') {
         setClosedNow((ids) => new Set(ids).add(poll.id));
+      } else {
+        tg.haptic.notify('error');
+        setFailed((ids) => new Set(ids).add(poll.id));
       }
     } finally {
       setPending(null);
     }
   };
 
-  return { vote, closedNow, pending };
+  return { vote, closedNow, failed, pending };
 }

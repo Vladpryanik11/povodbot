@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../api/AppApi';
 import { MockApi } from '../api/mock/MockApi';
 import { createTg } from '../telegram/tg';
 import { renderScreen, T0 } from '../test/render';
@@ -65,5 +66,16 @@ describe('Polls', () => {
     await userEvent.click(within(card).getByRole('button', { name: /Отель «Гранд Будапешт»/ }));
     expect(vote).toHaveBeenCalledWith('p-film', 'po-budapest');
     expect(await within(card).findByText('4%')).toBeInTheDocument();
+  });
+});
+
+describe('Polls errors', () => {
+  it('says when a vote did not go through', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    vi.spyOn(api, 'vote').mockRejectedValue(new ApiError('network'));
+    renderScreen(<Polls />, { at: '/polls', api });
+    const card = await activeCard();
+    await userEvent.click(within(card).getByRole('button', { name: /Амели/ }));
+    expect(await within(card).findByText('Не получилось проголосовать. Попробуйте ещё раз.')).toBeInTheDocument();
   });
 });

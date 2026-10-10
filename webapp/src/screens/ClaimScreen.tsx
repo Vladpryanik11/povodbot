@@ -7,6 +7,7 @@ import { ApiError } from '../api/AppApi';
 import type { Ticket } from '../api/types';
 import { formatDateTime } from '../lib/format';
 import { useMainButton } from '../telegram/hooks';
+import { ticketsQuery } from '../tickets/useTickets';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { Skeleton } from '../ui/Skeleton';
@@ -27,7 +28,7 @@ export function ClaimScreen() {
     api
       .claimTicket(token)
       .then((ticket) => {
-        void queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        void queryClient.prefetchQuery(ticketsQuery(api));
         setResult({ kind: 'ok', ticket });
       })
       .catch((error: unknown) => {

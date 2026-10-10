@@ -13,4 +13,5 @@
 .summary { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-16); border-radius: var(--r-16); background: var(--surface-1); border: 1px solid var(--border); }
 .summaryTitle { font: 500 0.875rem/1.125rem var(--font-display); }
 .summaryMeta { color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
+.error { margin: 0; color: var(--error); text-align: center; }
 .summaryRow { display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--s-8); }

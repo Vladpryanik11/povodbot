@@ -1,4 +1,4 @@
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { StartGate } from './StartGate';
 import { Afisha } from './screens/Afisha';
 import { EventScreen } from './screens/EventScreen';
@@ -15,10 +15,6 @@ import { TabBar } from './ui/TabBar';
 import styles from './App.module.css';
 
 const TAB_PATHS = new Set(['/', '/tickets', '/polls']);
-
-function Soon({ title }: { title: string }) {
-  return <p className={styles.soon}>{title}</p>;
-}
 
 export function App() {
   useTheme();
@@ -39,7 +35,7 @@ export function App() {
             <Route path="/claim/:token" element={<ClaimScreen />} />
             <Route path="/polls" element={<Polls />} />
             {import.meta.env.DEV ? <Route path="/kit" element={<Kit />} /> : null}
-            <Route path="*" element={<Soon title="Такой страницы нет" />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
         <TabBar hidden={!TAB_PATHS.has(pathname) || mainButton !== null} />

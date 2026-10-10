@@ -28,5 +28,6 @@
 .label svg { color: var(--accent-text); }
 .percent { position: relative; font: 700 0.875rem/1.25rem var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-2); }
 .chosen .percent { color: var(--accent-text); }
+.error { margin: 0; color: var(--error); font: 500 0.8125rem/1.125rem var(--font-body); }
 .note { margin: 0; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
 .note strong { color: var(--text-1); font-weight: 600; }

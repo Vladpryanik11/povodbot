@@ -11,6 +11,7 @@ import { usePollVote } from '../polls/usePollVote';
 import { ACTIVE_ORDER_KEY } from '../start';
 import { useBackButton, useMainButton, useTg } from '../telegram/hooks';
 import { Dialog } from '../ui/Dialog';
+import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { ICON_STROKE } from '../ui/icons';
 import { PhotoHeader } from '../ui/PhotoHeader';
@@ -18,6 +19,8 @@ import { PollCard } from '../ui/PollCard';
 import { Skeleton } from '../ui/Skeleton';
 import { Stepper } from '../ui/Stepper';
 import styles from './EventScreen.module.css';
+
+const LONG_TITLE = 28;
 
 type Problem =
   | { kind: 'active'; orderId: string; eventTitle: string }
@@ -36,7 +39,7 @@ export function EventScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const inFlight = useRef(false);
-  const { vote, closedNow, pending } = usePollVote();
+  const { vote, closedNow, failed, pending } = usePollVote();
 
   const goBack = () => navigate(-1);
   useBackButton(goBack);
@@ -81,6 +84,15 @@ export function EventScreen() {
       : null,
   );
 
+  if (event.error instanceof ApiError && event.error.code === 'not_found') {
+    return (
+      <EmptyState
+        title="Вечер не найден"
+        text="Возможно, он уже прошёл. Загляните в афишу — там есть другие вечера."
+        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+      />
+    );
+  }
   if (event.isError) {
     return (
       <ErrorState
@@ -107,7 +119,12 @@ export function EventScreen() {
     <main className={styles.page}>
       <PhotoHeader poster={data.poster} title={data.title} icon={icon} onBack={tg.isTelegram ? undefined : goBack} />
       <div className={styles.body}>
-        <h1 className={`t-h1 ${styles.title}`}>{data.title}</h1>
+        <h1
+          className={`t-h1 ${styles.title} ${data.title.length > LONG_TITLE ? styles.titleLong : ''}`}
+          data-long={data.title.length > LONG_TITLE ? 'true' : 'false'}
+        >
+          {data.title}
+        </h1>
         <Stats event={data} />
         <p className={styles.place}>
           <MapPin size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
@@ -139,6 +156,7 @@ export function EventScreen() {
           <PollCard
             poll={data.poll}
             closedNow={closedNow.has(data.poll.id)}
+            failed={failed.has(data.poll.id)}
             busy={pending === data.poll.id}
             onVote={(optionId) => void vote(data.poll!, optionId)}
           />

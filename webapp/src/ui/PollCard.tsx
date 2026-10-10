@@ -10,9 +10,11 @@ interface PollCardProps {
   /** The server said it closed after the list was loaded. */
   closedNow?: boolean;
   busy?: boolean;
+  /** The last vote did not reach the server. */
+  failed?: boolean;
 }
 
-export function PollCard({ poll, onVote, closedNow = false, busy = false }: PollCardProps) {
+export function PollCard({ poll, onVote, closedNow = false, busy = false, failed = false }: PollCardProps) {
   const closed = poll.closed || closedNow;
   const deadline = `${formatDate(poll.closesAt, poll.timezone)}, ${formatTime(poll.closesAt, poll.timezone)}`;
   const mine = poll.options.find((o) => o.id === poll.myOptionId);
@@ -45,6 +47,11 @@ export function PollCard({ poll, onVote, closedNow = false, busy = false }: Poll
           );
         })}
       </ul>
+      {failed ? (
+        <p className={styles.error} role="alert">
+          Не получилось проголосовать. Попробуйте ещё раз.
+        </p>
+      ) : null}
       {closedNow && !poll.closed ? (
         <p className={styles.note} role="status">
           <strong>Голосование уже закрыто</strong>

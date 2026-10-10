@@ -21,7 +21,7 @@
 .inactive { opacity: 0.6; }
 .inactive img { filter: grayscale(1); }
 
-.rowTitle { display: block; font: 500 0.875rem/1.125rem var(--font-display); }
+.rowTitle { display: block; overflow-wrap: anywhere; hyphens: auto; font: 500 0.875rem/1.125rem var(--font-display); }
 .rowMeta { display: block; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
 .count { font: 700 0.9375rem/1.375rem var(--font-body); color: var(--accent-text); }
 .muted { color: var(--text-3); font: 600 0.8125rem/1.125rem var(--font-body); }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Me, Order } from './api/types';
-import { resolveStart } from './start';
+import { normalizeLaunchHash, resolveStart } from './start';
 
 const me = (activeOrder: Partial<Order> | null = null): Me => ({
   welcomeAccepted: true,
@@ -25,5 +25,18 @@ describe('resolveStart', () => {
     expect(resolveStart(null, me())).toBe('/');
     expect(resolveStart('garbage', me())).toBe('/');
     expect(resolveStart('event_', me())).toBe('/');
+  });
+});
+
+describe('normalizeLaunchHash', () => {
+  it('replaces the launch parameters Telegram puts after # with the afisha route', () => {
+    expect(normalizeLaunchHash('#tgWebAppData=query_id%3D1&tgWebAppVersion=7.10&tgWebAppPlatform=ios')).toBe('#/');
+    expect(normalizeLaunchHash('')).toBe('#/');
+    expect(normalizeLaunchHash('#')).toBe('#/');
+  });
+
+  it('leaves real app routes alone', () => {
+    expect(normalizeLaunchHash('#/events/e-film')).toBeNull();
+    expect(normalizeLaunchHash('#/')).toBeNull();
   });
 });

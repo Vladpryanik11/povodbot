@@ -42,6 +42,7 @@ export interface TelegramWebApp {
     hideProgress: () => void;
     onClick: (cb: Callback) => void;
     offClick: (cb: Callback) => void;
+    setParams?: (params: { color?: string; text_color?: string }) => void;
   };
   BackButton?: {
     show: () => void;
@@ -120,6 +121,13 @@ const localStore = {
   },
 };
 
+/** The club accent stays fixed; Telegram would otherwise paint the button in its own theme colour. */
+const MAIN_ENABLED = { color: '#FF7A3D', text_color: '#2B1205' };
+const MAIN_DISABLED: Record<ColorScheme, { color: string; text_color: string }> = {
+  dark: { color: '#2A262F', text_color: '#BDB6AE' },
+  light: { color: '#E6E1DA', text_color: '#5A545C' },
+};
+
 export function createTg(web?: TelegramWebApp): TgFacade {
   let mainHandler: Callback | null = null;
   let backHandler: Callback | null = null;
@@ -179,6 +187,7 @@ export function createTg(web?: TelegramWebApp): TgFacade {
           return;
         }
         native.setText(state.text);
+        native.setParams?.(state.enabled ? MAIN_ENABLED : MAIN_DISABLED[web?.colorScheme === 'light' ? 'light' : 'dark']);
         if (state.enabled) native.enable();
         else native.disable();
         if (state.progress) native.showProgress(false);

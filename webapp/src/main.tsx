@@ -4,9 +4,14 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { ApiProvider } from './api/ApiProvider';
 import { App } from './App';
+import { normalizeLaunchHash } from './start';
 import { tg } from './telegram/tg';
 import './styles/tokens.css';
 import './styles/global.css';
+
+// telegram-web-app.js has already read its launch parameters from the hash by now.
+const launchHash = normalizeLaunchHash(window.location.hash);
+if (launchHash) window.history.replaceState(null, '', window.location.pathname + window.location.search + launchHash);
 
 tg.ready();
 tg.expand();
