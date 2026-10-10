@@ -36,10 +36,10 @@ describe('Polls', () => {
 
   it('shows the outcome of a closed poll without letting anyone vote', async () => {
     renderScreen(<Polls />, { at: '/polls' });
-    const closed = (await screen.findByText('Во что играем в субботу?')).closest('section')!;
+    const closed = (await screen.findByText('Что лепим в следующий раз?')).closest('section')!;
     expect(within(closed).getByText('Голосование закрыто')).toBeInTheDocument();
     expect(within(closed).getByText('46%')).toBeInTheDocument();
-    expect(within(closed).getByRole('button', { name: /Имаджинариум/ })).toBeDisabled();
+    expect(within(closed).getByRole('button', { name: /Вазу/ })).toBeDisabled();
   });
 
   it('explains when the poll closed while the guest was looking', async () => {

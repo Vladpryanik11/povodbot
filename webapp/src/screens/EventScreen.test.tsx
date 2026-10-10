@@ -13,7 +13,7 @@ const add = () => userEvent.click(screen.getByRole('button', { name: /Входн
 describe('EventScreen', () => {
   it('sums the cart and puts the total on the main button', async () => {
     renderScreen(<EventScreen />, at('e-film'));
-    expect(await screen.findByRole('heading', { name: 'Повод для киновечера' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Амели на большом экране' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Выберите билеты' })).toBeDisabled();
     await add();
     await add();
@@ -23,14 +23,14 @@ describe('EventScreen', () => {
   });
 
   it('says there are no seats for a sold-out evening', async () => {
-    renderScreen(<EventScreen />, at('e-party'));
+    renderScreen(<EventScreen />, at('e-workshop-2'));
     expect(await screen.findByRole('button', { name: 'Мест нет' })).toBeDisabled();
   });
 
   it('shows the poll question and the undecided venue', async () => {
     renderScreen(<EventScreen />, at('e-film'));
     expect(await screen.findByText('Что смотрим в пятницу?')).toBeInTheDocument();
-    renderScreen(<EventScreen />, at('e-talk'));
+    renderScreen(<EventScreen />, at('e-book'));
     expect(
       await screen.findByText('Место пока уточняется. Напишем в боте, как только определимся.'),
     ).toBeInTheDocument();
@@ -43,7 +43,7 @@ describe('EventScreen', () => {
     const openLink = vi.spyOn(tg, 'openLink').mockImplementation(() => undefined);
     const closing = vi.spyOn(tg, 'closingConfirmation');
     renderScreen(<EventScreen />, { ...at('e-film'), api, tg });
-    await screen.findByRole('heading', { name: 'Повод для киновечера' });
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
     const pay = await screen.findByRole('button', { name: /^Оплатить/ });
     await userEvent.dblClick(pay);
@@ -56,14 +56,14 @@ describe('EventScreen', () => {
 
   it('offers to continue an existing reservation', async () => {
     const api = new MockApi({ latencyMs: 0, now: () => T0 });
-    const detail = await api.event('e-games');
-    await api.createOrder('e-games', [{ ticketTypeId: detail.ticketTypes[0].id, qty: 1 }]);
+    const detail = await api.event('e-workshop');
+    await api.createOrder('e-workshop', [{ ticketTypeId: detail.ticketTypes[0].id, qty: 1 }]);
     renderScreen(<EventScreen />, { ...at('e-film'), api });
-    await screen.findByRole('heading', { name: 'Повод для киновечера' });
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
     await userEvent.click(await screen.findByRole('button', { name: /^Оплатить/ }));
     expect(await screen.findByRole('dialog', { name: 'У вас уже есть бронь' })).toBeInTheDocument();
-    expect(screen.getByText('Бронь на «Настолки до утра» ждёт оплаты. Продолжить оплату или отменить?')).toBeInTheDocument();
+    expect(screen.getByText('Бронь на «Лепим чашку из глины» ждёт оплаты. Продолжить оплату или отменить?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
     expect(await screen.findByText('/order/o-1', { selector: 'output' })).toBeInTheDocument();
   });
@@ -75,7 +75,7 @@ describe('EventScreen', () => {
     vi.spyOn(tg, 'openLink').mockImplementation(() => undefined);
     const notify = vi.spyOn(tg.haptic, 'notify');
     renderScreen(<EventScreen />, { ...at('e-film'), api, tg });
-    await screen.findByRole('heading', { name: 'Повод для киновечера' });
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
     await add();
     await add();
@@ -92,7 +92,7 @@ describe('EventScreen', () => {
     const tg = createTg();
     const impact = vi.spyOn(tg.haptic, 'impact');
     renderScreen(<EventScreen />, { ...at('e-film'), tg });
-    await screen.findByRole('heading', { name: 'Повод для киновечера' });
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
     expect(impact).toHaveBeenCalledWith('light');
   });

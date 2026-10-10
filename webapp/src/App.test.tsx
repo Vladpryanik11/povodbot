@@ -58,7 +58,7 @@ describe('App start', () => {
     const api = new MockApi({ latencyMs: 0, now: () => T0 });
     const detail = await api.event('e-film');
     const order = await api.createOrder('e-film', [{ ticketTypeId: detail.ticketTypes[0].id, qty: 1 }]);
-    vi.spyOn(api, 'me').mockResolvedValue({ welcomeAccepted: true, activeOrder: null });
+    vi.spyOn(api, 'me').mockResolvedValue({ welcomeAccepted: true, activeOrder: null, showInAttendees: false });
     const tg = tgWithStart(null);
     await tg.storage.set('activeOrderId', order.id);
 

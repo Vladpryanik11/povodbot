@@ -85,7 +85,7 @@ describe('OrderScreen after the bank', () => {
     const ctx = await setup('happy', 'paid');
     open(ctx);
     expect(await screen.findByText('Билеты у вас')).toBeInTheDocument();
-    expect(screen.getByText('Ждём в пт, 16 окт в 20:00. Копия ушла в бот.')).toBeInTheDocument();
+    expect(screen.getByText('Ждём в сб, 10 окт в 23:00. Копия ушла в бот.')).toBeInTheDocument();
     expect(ctx.haptic).toHaveBeenCalledWith('success');
     expect(ctx.closing).toHaveBeenLastCalledWith(false);
     act(() => lastBack(ctx.back)());

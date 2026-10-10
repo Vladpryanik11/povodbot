@@ -19,22 +19,39 @@ async function rejection(promise: Promise<unknown>): Promise<ApiError> {
 }
 
 describe('MockApi fixtures', () => {
-  it('lists future events by date with the film night first on Friday 16 Oct at 20:00 MSK', async () => {
+  it('lists future events by date with the film night tonight first, Saturday 10 Oct at 23:00 MSK', async () => {
     const events = await api().events();
-    expect(events[0].title).toBe('Повод для киновечера');
-    expect(events[0].startsAt).toBe('2026-10-16T17:00:00.000Z');
+    expect(events).toHaveLength(6);
+    expect(events[0].title).toBe('Амели на большом экране');
+    expect(events[0].startsAt).toBe('2026-10-10T20:00:00.000Z');
     expect(events[0].seatsLeft).toBe(5);
     expect(events.some((e) => e.address === null)).toBe(true);
     expect(events.some((e) => e.soldOut)).toBe(true);
-    expect(events.some((e) => e.poster === null)).toBe(true);
+    expect(events.filter((e) => e.poster === null)).toHaveLength(1);
+  });
+
+  it('offers three directions: film nights, workshops, book club', async () => {
+    const directions = await api().directions();
+    expect(directions.map((d) => d.title)).toEqual(['Киновечер', 'Мастерклассы', 'Книжный клуб']);
+    expect(directions.map((d) => d.id)).toEqual(['d-film', 'd-workshop', 'd-book']);
+  });
+
+  it('gives every event an accent colour field and at most three attendee avatars', async () => {
+    const events = await api().events();
+    for (const e of events) {
+      expect(e).toHaveProperty('accentColor');
+      expect(e.attendees.avatars.length).toBeLessThanOrEqual(3);
+    }
+    expect(events.filter((e) => e.accentColor === '#2B6FFF')).toHaveLength(1);
+    expect(events.filter((e) => e.attendees.count === 23)).toHaveLength(3);
   });
 
   it('filters by direction', async () => {
     const mock = api();
-    const [, games] = await mock.directions();
-    const events = await mock.events(games.id);
-    expect(events.length).toBeGreaterThan(0);
-    expect(events.every((e) => e.directionId === games.id)).toBe(true);
+    const [, workshop] = await mock.directions();
+    const events = await mock.events(workshop.id);
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.directionId === workshop.id)).toBe(true);
   });
 });
 
@@ -164,5 +181,15 @@ describe('scenarios', () => {
     const mock = api('offline');
     expect((await rejection(mock.events())).code).toBe('network');
     expect((await rejection(mock.me())).code).toBe('network');
+  });
+});
+
+describe('MockApi privacy', () => {
+  it('remembers whether the guest shows up in the attendee list', async () => {
+    const mock = api();
+    expect((await mock.me()).showInAttendees).toBe(false);
+    const updated = await mock.setShowInAttendees(true);
+    expect(updated.showInAttendees).toBe(true);
+    expect((await mock.me()).showInAttendees).toBe(true);
   });
 });

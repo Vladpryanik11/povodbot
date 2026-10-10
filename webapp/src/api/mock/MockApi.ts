@@ -32,6 +32,7 @@ export class MockApi implements AppApi {
   private readonly orders = new Map<string, MockOrder>();
   private readonly shares = new Map<string, { ticketId: string; claimed: boolean }>();
   private seq = 0;
+  private showInAttendees = false;
 
   constructor(options: MockApiOptions = {}) {
     this.scenario = options.scenario ?? 'happy';
@@ -50,7 +51,15 @@ export class MockApi implements AppApi {
     return this.call(() => ({
       welcomeAccepted: readWelcome(),
       activeOrder: this.activeOrder(),
+      showInAttendees: this.showInAttendees,
     }));
+  }
+
+  async setShowInAttendees(value: boolean): Promise<Me> {
+    await this.call(() => {
+      this.showInAttendees = value;
+    });
+    return this.me();
   }
 
   acceptWelcome(): Promise<void> {
@@ -357,6 +366,8 @@ function toCard(event: MockEvent): EventCard {
     seatsLeft: event.seatsLeft,
     soldOut: event.seatsLeft <= 0,
     directionId: event.directionId,
+    accentColor: event.accentColor,
+    attendees: { count: event.attendees.count, avatars: [...event.attendees.avatars] },
   };
 }
 

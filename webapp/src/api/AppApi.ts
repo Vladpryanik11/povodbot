@@ -23,6 +23,7 @@ export class ApiError extends Error {
 export interface AppApi {
   me(): Promise<Me>;
   acceptWelcome(): Promise<void>;
+  setShowInAttendees(value: boolean): Promise<Me>;
   directions(): Promise<Direction[]>;
   events(directionId?: string): Promise<EventCard[]>;
   event(id: string): Promise<EventDetail>;

@@ -6,9 +6,8 @@ import styles from './Welcome.module.css';
 
 const TILES = [
   { icon: 'film', color: POSTER_COLORS[1] },
-  { icon: 'dice', color: POSTER_COLORS[2] },
-  { icon: 'talk', color: POSTER_COLORS[0] },
-  { icon: 'party', color: POSTER_COLORS[5] },
+  { icon: 'workshop', color: POSTER_COLORS[2] },
+  { icon: 'book', color: POSTER_COLORS[0] },
 ] as const;
 
 /** Shown once. The owner will add the consent wording into the owner slot later (spec §2). */

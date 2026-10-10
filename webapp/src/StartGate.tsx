@@ -73,7 +73,7 @@ export function StartGate({ children }: { children: ReactNode }) {
       <Welcome
         onAccept={async () => {
           await api.acceptWelcome();
-          await open(me.current ?? { welcomeAccepted: true, activeOrder: null });
+          await open(me.current ?? { welcomeAccepted: true, activeOrder: null, showInAttendees: false });
         }}
       />
     );

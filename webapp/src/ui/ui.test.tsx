@@ -37,7 +37,7 @@ describe('Stepper', () => {
 
 describe('Poster', () => {
   it('falls back to a coloured block with the direction icon when there is no photo', () => {
-    render(<Poster poster={null} title="Настолки до утра" ratio="4:5" icon="dice" />);
+    render(<Poster poster={null} title="Настолки до утра" ratio="4:5" icon="book" />);
     const block = screen.getByTestId('poster');
     expect(block.style.backgroundColor).toBe(hexToRgb(posterColor('Настолки до утра')));
     expect(block.querySelector('img')).toBeNull();

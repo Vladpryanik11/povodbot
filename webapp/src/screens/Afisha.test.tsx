@@ -12,8 +12,8 @@ describe('Afisha', () => {
   it('puts the nearest evening in the hero with date, seats and price', async () => {
     renderScreen(<Afisha />);
     const hero = await screen.findByTestId('hero');
-    expect(within(hero).getByText('Повод для киновечера')).toBeInTheDocument();
-    expect(within(hero).getByText('пт, 16 окт · 20:00')).toBeInTheDocument();
+    expect(within(hero).getByText('Амели на большом экране')).toBeInTheDocument();
+    expect(within(hero).getByText('сб, 10 окт · 23:00')).toBeInTheDocument();
     expect(within(hero).getByText('осталось 5 мест')).toBeInTheDocument();
     // Testing Library collapses the page's non-breaking spaces but compares the matcher as is.
     expect(within(hero).getByText(`от ${formatPrice(155000)}`.replace(/\u00a0/g, ' '))).toBeInTheDocument();
@@ -24,15 +24,15 @@ describe('Afisha', () => {
     const tg = createTg();
     const selection = vi.spyOn(tg.haptic, 'selection');
     renderScreen(<Afisha />, { tg });
-    await userEvent.click(await screen.findByRole('button', { name: 'Настолки' }));
-    expect(await screen.findByText('Настолки до утра')).toBeInTheDocument();
-    expect(screen.queryByText('Повод для киновечера')).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Мастерклассы' }));
+    expect(await screen.findByText('Лепим чашку из глины')).toBeInTheDocument();
+    expect(screen.queryByText('Амели на большом экране')).toBeNull();
     expect(selection).toHaveBeenCalled();
   });
 
   it('marks a sold-out evening', async () => {
     renderScreen(<Afisha />);
-    const card = (await screen.findByText('Квартирник «Тёплый ламповый»')).closest('a')!;
+    const card = (await screen.findByText('Коктейли без спешки')).closest('a')!;
     expect(card).toHaveAttribute('data-sold-out', 'true');
     expect(within(card).getByText('мест нет')).toBeInTheDocument();
   });

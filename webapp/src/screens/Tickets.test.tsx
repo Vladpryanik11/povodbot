@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildFixtures } from '../api/mock/fixtures';
 import { MockApi } from '../api/mock/MockApi';
 import { ticketCache } from '../lib/ticketCache';
 import { createTg } from '../telegram/tg';
@@ -20,11 +21,20 @@ afterEach(() => {
 
 const ticketAt = (id: string) => ({ at: `/tickets/${id}`, path: '/tickets/:id' });
 
+/** The default fixtures hold one valid ticket; these screens need a pair from one order. */
+function withPair(): MockApi {
+  const fixtures = buildFixtures(T0);
+  const first = fixtures.tickets[0];
+  first.ofCount = 2;
+  fixtures.tickets.splice(1, 0, { ...first, id: 'tk-2', position: 2, shortCode: '4822', qrToken: 'pv1.tk-2.ZGVtby1zZWNvbmQtdGlja2V0' });
+  return new MockApi({ latencyMs: 0, now: () => T0, fixtures });
+}
+
 describe('Tickets list', () => {
   it('groups upcoming tickets by evening and folds the past', async () => {
-    renderScreen(<Tickets />, { at: '/tickets' });
+    renderScreen(<Tickets />, { at: '/tickets', api: withPair() });
     expect(await screen.findByRole('heading', { name: 'Ближайшие' })).toBeInTheDocument();
-    const film = screen.getByRole('link', { name: /Повод для киновечера/ });
+    const film = screen.getByRole('link', { name: /Амели на большом экране/ });
     expect(within(film).getByText('2 билета')).toBeInTheDocument();
     expect(film).toHaveAttribute('href', '/tickets/tk-1');
     expect(screen.getByText('Прошедшие · 2')).toBeInTheDocument();
@@ -46,7 +56,7 @@ describe('Ticket screen', () => {
   it('shows a large QR with the fallback number and pages to the next ticket', async () => {
     const tg = createTg();
     const openLink = vi.spyOn(tg, 'openLink').mockImplementation(() => undefined);
-    renderScreen(<TicketScreen />, { ...ticketAt('tk-1'), tg });
+    renderScreen(<TicketScreen />, { ...ticketAt('tk-1'), api: withPair(), tg });
     const qr = await screen.findByRole('img', { name: 'QR-код билета' });
     expect(parseInt(qr.style.width, 10)).toBeGreaterThanOrEqual(240);
     expect(screen.getByText('Билет 1 из 2')).toBeInTheDocument();
@@ -76,7 +86,7 @@ describe('Ticket screen', () => {
   });
 
   it('sends a ticket to a friend through the Telegram share sheet', async () => {
-    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    const api = withPair();
     const tg = createTg();
     const share = vi.spyOn(tg, 'openTelegramLink').mockImplementation(() => undefined);
     renderScreen(<TicketScreen />, { ...ticketAt('tk-2'), api, tg });
@@ -90,7 +100,7 @@ describe('Ticket screen', () => {
 
 describe('Claim screen', () => {
   it('gives the ticket to the friend once and explains a second attempt', async () => {
-    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    const api = withPair();
     const { shareUrl } = await api.shareTicket('tk-2');
     const token = new URL(shareUrl).searchParams.get('startapp')!.replace('claim_', '');
     const first = renderScreen(<ClaimScreen />, { api, at: `/claim/${token}`, path: '/claim/:token' });

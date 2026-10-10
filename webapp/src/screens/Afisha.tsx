@@ -104,7 +104,7 @@ function DirectionRow({
   return (
     <div className={styles.directions} role="group" aria-label="Направления">
       <DirectionTile
-        direction={{ title: 'Все', icon: 'party' }}
+        direction={{ title: 'Все', icon: 'film' }}
         iconOverride={Sparkles}
         selected={selected === undefined}
         onSelect={() => onPick(undefined)}

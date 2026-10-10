@@ -1,4 +1,4 @@
-export type DirectionIcon = 'film' | 'dice' | 'talk' | 'party';
+export type DirectionIcon = 'film' | 'workshop' | 'book';
 
 export interface Direction {
   id: string;
@@ -27,6 +27,10 @@ export interface EventCard {
   seatsLeft: number;
   soldOut: boolean;
   directionId: string;
+  /** Organiser-picked poster colour, #RRGGBB; null → taken from the poster or the title. */
+  accentColor: string | null;
+  /** Avatars only of guests who agreed to be shown (≤ 3); the rest are counted. */
+  attendees: { count: number; avatars: string[] };
 }
 
 export interface TicketTypeOffer {
@@ -106,4 +110,5 @@ export interface Ticket {
 export interface Me {
   welcomeAccepted: boolean;
   activeOrder: Order | null;
+  showInAttendees: boolean;
 }
