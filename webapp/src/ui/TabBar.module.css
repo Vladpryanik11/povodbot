@@ -1,25 +1,28 @@
 .bar {
   position: fixed;
-  left: var(--s-16);
-  right: var(--s-16);
-  bottom: max(var(--s-12), env(safe-area-inset-bottom));
-  height: var(--nav-h);
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: calc(100% - 2 * var(--s-16));
+  max-width: 300px;
+  height: 56px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-radius: var(--r-20);
+  align-items: center;
+  justify-items: center;
+  border-radius: var(--r-pill);
+  background: var(--tabbar);
+  border: 1px solid var(--tabbar-border);
   z-index: 10;
 }
-.bar.glass { background: var(--tabbar); }
 .tab {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--s-2);
-  color: var(--text-2);
-  text-decoration: none;
-  font: 600 0.75rem/1rem var(--font-body);
-  min-height: var(--tap);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
 }
-.active { color: var(--text-1); }
+.active { color: #ffffff; }
 .hidden { display: none; }

@@ -5,21 +5,18 @@ import { EventScreen } from './screens/EventScreen';
 import { MockPay } from './screens/MockPay';
 import { OrderScreen } from './screens/OrderScreen';
 import { ClaimScreen } from './screens/ClaimScreen';
-import { Polls } from './screens/Polls';
-import { Tickets } from './screens/Tickets';
 import { TicketScreen } from './screens/TicketScreen';
-import { useMainButtonState, useTheme } from './telegram/hooks';
+import { useTheme } from './telegram/hooks';
 import { Glow, GlowProvider } from './ui/Glow';
 import { InPageMainButton } from './ui/InPageMainButton';
 import { TabBar } from './ui/TabBar';
 import styles from './App.module.css';
 
-const TAB_PATHS = new Set(['/', '/tickets', '/polls']);
+export const TAB_PATHS = new Set(['/', '/favorites', '/me']);
 
 export function App() {
   useTheme();
   const { pathname } = useLocation();
-  const mainButton = useMainButtonState();
 
   return (
     <GlowProvider>
@@ -31,14 +28,15 @@ export function App() {
             <Route path="/events/:id" element={<EventScreen />} />
             <Route path="/order/:id" element={<OrderScreen />} />
             <Route path="/mock-pay/:id" element={<MockPay />} />
-            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/favorites" element={null} />
+            <Route path="/me" element={null} />
+            <Route path="/tickets" element={<Navigate to="/me" replace />} />
             <Route path="/tickets/:id" element={<TicketScreen />} />
             <Route path="/claim/:token" element={<ClaimScreen />} />
-            <Route path="/polls" element={<Polls />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
-        <TabBar hidden={!TAB_PATHS.has(pathname) || mainButton !== null} />
+        <TabBar hidden={!TAB_PATHS.has(pathname)} />
       </StartGate>
       <InPageMainButton />
     </GlowProvider>

@@ -103,15 +103,37 @@ describe('InPageMainButton', () => {
 });
 
 describe('TabBar', () => {
-  it('links the three tabs and marks the current one', () => {
+  it('tab bar: three icon tabs, active one filled white', () => {
     render(
-      <MemoryRouter initialEntries={['/tickets']}>
+      <MemoryRouter initialEntries={['/favorites']}>
         <TabBar hidden={false} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: 'Афиша' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Билеты' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Голосуем' })).toHaveAttribute('href', '/polls');
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    expect(nav.querySelectorAll('a')).toHaveLength(3);
+    const home = screen.getByRole('link', { name: 'Дом' });
+    const fav = screen.getByRole('link', { name: 'Избранное' });
+    expect(home).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Кабинет' })).toHaveAttribute('href', '/me');
+    expect(fav).toHaveAttribute('aria-current', 'page');
+    expect(fav.querySelector('svg')).toHaveAttribute('fill', 'currentColor');
+    expect(home.querySelector('svg')).toHaveAttribute('fill', 'none');
+    expect(home).not.toHaveAttribute('aria-current');
+    expect(screen.queryByText('Дом')).toBeNull();
+  });
+
+  it('gives a selection haptic on tap', async () => {
+    const tg = createTg();
+    const selection = vi.spyOn(tg.haptic, 'selection');
+    render(
+      <TgProvider value={tg}>
+        <MemoryRouter initialEntries={['/']}>
+          <TabBar hidden={false} />
+        </MemoryRouter>
+      </TgProvider>,
+    );
+    await userEvent.click(screen.getByRole('link', { name: 'Кабинет' }));
+    expect(selection).toHaveBeenCalled();
   });
 });
 

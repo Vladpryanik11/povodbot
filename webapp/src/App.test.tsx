@@ -68,9 +68,15 @@ describe('App start', () => {
 
   it('stays on the screen it was reloaded on when there is no link or reservation', async () => {
     localStorage.setItem('povod.mock.welcome', '1');
+    renderApp(new MockApi({ latencyMs: 0, now: () => T0 }), tgWithStart(null), '/favorites');
+    expect(await screen.findByRole('link', { name: 'Избранное' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('/favorites', { selector: 'output' })).toBeInTheDocument();
+  });
+
+  it('sends the old tickets tab to the cabinet', async () => {
+    localStorage.setItem('povod.mock.welcome', '1');
     renderApp(new MockApi({ latencyMs: 0, now: () => T0 }), tgWithStart(null), '/tickets');
-    expect(await screen.findByRole('heading', { name: 'Билеты' })).toBeInTheDocument();
-    expect(screen.getByText('/tickets', { selector: 'output' })).toBeInTheDocument();
+    expect(await screen.findByText('/me', { selector: 'output' })).toBeInTheDocument();
   });
 });
 
