@@ -1,0 +1,116 @@
+@import '@fontsource/unbounded/cyrillic-500.css';
+@import '@fontsource/unbounded/latin-500.css';
+@import '@fontsource-variable/manrope';
+
+:root {
+  --font-display: 'Unbounded', 'Manrope Variable', system-ui, sans-serif;
+  --font-body: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --r-8: 8px;
+  --r-12: 12px;
+  --r-16: 16px;
+  --r-20: 20px;
+  --r-26: 26px;
+  --r-pill: 999px;
+
+  --s-2: 2px;
+  --s-4: 4px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-20: 20px;
+  --s-24: 24px;
+  --s-32: 32px;
+  --s-40: 40px;
+
+  --tap: 44px;
+  --nav-h: 64px;
+  --scrim: linear-gradient(to top, rgba(15, 14, 18, 0.8), rgba(15, 14, 18, 0.65) 45%, transparent);
+  --scrim-top: linear-gradient(to bottom, rgba(15, 14, 18, 0.35), transparent);
+  --photo-pill: rgba(15, 14, 18, 0.6);
+  --on-photo: #f5f2ee;
+}
+
+:root,
+[data-theme='dark'] {
+  --bg: #0f0e12;
+  --surface-1: #17151b;
+  --surface-2: #1f1c24;
+  --surface-3: #2a262f;
+  --text-1: #f5f2ee;
+  --text-2: #bdb6ae;
+  --text-3: #8f8982;
+  --accent: #ff7a3d;
+  --accent-pressed: #e8662b;
+  --on-accent: #2b1205;
+  --accent-text: #ff7a3d;
+  --icon-violet: #9c8cff;
+  --icon-mint: #5fd0a8;
+  --success: #5fd0a8;
+  --error: #ff7a7a;
+  --warning: #ffc857;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: #6b655f;
+  --glass: rgba(30, 27, 34, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --glass-nav: rgba(48, 44, 52, 0.92);
+  --glass-fallback: #2a262f;
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg: #f6f3ee;
+  --surface-1: #ffffff;
+  --surface-2: #f0ece6;
+  --surface-3: #e6e1da;
+  --text-1: #1d1a20;
+  --text-2: #5a545c;
+  --text-3: #736d75;
+  --accent: #ff7a3d;
+  --accent-pressed: #e8662b;
+  --on-accent: #2b1205;
+  --accent-text: #b33f0b;
+  --icon-violet: #5b49d6;
+  --icon-mint: #0e7a5b;
+  --success: #0e7a5b;
+  --error: #c42b2b;
+  --warning: #8a5a00;
+  --border: rgba(29, 26, 32, 0.1);
+  --border-strong: #8c868e;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(29, 26, 32, 0.08);
+  --glass-shadow: 0 8px 24px rgba(40, 30, 20, 0.12);
+  --glass-nav: rgba(255, 255, 255, 0.9);
+  --glass-fallback: #ffffff;
+  color-scheme: light;
+}
+
+.t-display { font: 500 1.625rem/1.875rem var(--font-display); text-transform: uppercase; }
+.t-h1 { font: 500 1.375rem/1.75rem var(--font-display); }
+.t-h2 { font: 500 1.0625rem/1.375rem var(--font-display); }
+.t-h3 { font: 500 0.875rem/1.125rem var(--font-display); }
+.t-body-l { font: 400 1rem/1.5rem var(--font-body); }
+.t-body { font: 400 0.9375rem/1.375rem var(--font-body); }
+.t-body-s { font: 500 0.8125rem/1.125rem var(--font-body); }
+.t-caption { font: 600 0.75rem/1rem var(--font-body); }
+.t-button { font: 700 1rem/1.25rem var(--font-body); }
+.t-price { font: 700 1.0625rem/1.375rem var(--font-body); font-variant-numeric: tabular-nums; }
+
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-fallback); }
+}
+
+.no-blur .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--glass-fallback);
+}
