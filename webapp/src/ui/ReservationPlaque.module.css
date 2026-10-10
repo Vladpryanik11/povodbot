@@ -1,0 +1,18 @@
+.plaque {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + 56px + 8px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: var(--tap);
+  padding: 0 var(--s-16);
+  border-radius: var(--r-pill);
+  color: var(--text-1);
+  text-decoration: none;
+  font: 500 0.9375rem/1.25rem var(--font-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

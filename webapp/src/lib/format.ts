@@ -66,3 +66,27 @@ export function shortDay(key: string): { dow: string; day: number } {
   const dow = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' }).format(date).replace('.', '');
   return { dow, day: date.getUTCDate() };
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** «в этот понедельник», «в эту среду», «в это воскресенье» — by the UTC weekday of a day key. */
+const THIS_WEEKDAY = [
+  'в это воскресенье',
+  'в этот понедельник',
+  'в этот вторник',
+  'в эту среду',
+  'в этот четверг',
+  'в эту пятницу',
+  'в эту субботу',
+];
+
+/** Billboard line under the title: «Сегодня в 20:00», «Завтра в 20:00», «Уже в эту субботу», «чт, 16 окт в 20:00». */
+export function billboardSubtitle(startsAt: string, timeZone: string, now: number): string {
+  const day = dayKey(startsAt, timeZone);
+  const today = dayKey(new Date(now).toISOString(), timeZone);
+  const diff = Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+  const time = formatTime(startsAt, timeZone);
+  if (diff === 0) return `Сегодня в ${time}`;
+  if (diff === 1) return `Завтра в ${time}`;
+  if (diff > 1 && diff <= 6) return `Уже ${THIS_WEEKDAY[new Date(`${day}T12:00:00Z`).getUTCDay()]}`;
+  return `${formatDate(startsAt, timeZone)} в ${time}`;
+}

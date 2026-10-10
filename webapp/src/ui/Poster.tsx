@@ -2,14 +2,11 @@ import type { ReactNode } from 'react';
 import type { DirectionIcon, Poster as PosterData } from '../api/types';
 import { posterColor } from '../lib/posterColor';
 import { DIRECTION_ICONS, ICON_STROKE } from './icons';
+import { usablePhoto } from './PosterImage';
 import styles from './Poster.module.css';
 
 const RATIO_CLASS = { '4:5': styles.r45, '2:1': styles.r21, '3:1': styles.r31 } as const;
-const MIN_SHORT_SIDE = 600;
 
-export function usablePhoto(poster: PosterData | null): poster is PosterData {
-  return poster !== null && Math.min(poster.width, poster.height) >= MIN_SHORT_SIDE;
-}
 
 interface PosterProps {
   poster: PosterData | null;

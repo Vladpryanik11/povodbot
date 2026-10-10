@@ -1,3 +1,5 @@
+import type { EventCard } from '../api/types';
+import { dayKey } from '../lib/format';
 import styles from './StatusPill.module.css';
 
 type Props = { kind: 'today' | 'left' | 'soldout'; count?: number };
@@ -11,4 +13,16 @@ export function StatusPill({ kind, count }: Props) {
       {text}
     </span>
   );
+}
+
+const LOW_SEATS = 15;
+
+/** The pill a poster gets: sold out, tonight, or few seats left — otherwise none. */
+export function PosterStatus({ event, now }: { event: EventCard; now: number }) {
+  if (event.soldOut) return <StatusPill kind="soldout" />;
+  if (dayKey(event.startsAt, event.timezone) === dayKey(new Date(now).toISOString(), event.timezone)) {
+    return <StatusPill kind="today" />;
+  }
+  if (event.seatsLeft <= LOW_SEATS) return <StatusPill kind="left" count={event.seatsLeft} />;
+  return null;
 }

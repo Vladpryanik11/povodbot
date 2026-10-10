@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayKey, formatDate, formatDateTime, formatPrice, formatTime, seatsLabel, shortDay, ticketsLabel } from './format';
+import { billboardSubtitle, dayKey, formatDate, formatDateTime, formatPrice, formatTime, seatsLabel, shortDay, ticketsLabel } from './format';
 
 const NB = ' ';
 
@@ -59,5 +59,28 @@ describe('day keys', () => {
   it('names the weekday and the day of a key', () => {
     expect(shortDay('2026-10-12')).toEqual({ dow: 'пн', day: 12 });
     expect(shortDay('2026-10-18')).toEqual({ dow: 'вс', day: 18 });
+  });
+});
+
+describe('billboardSubtitle', () => {
+  const tz = 'Europe/Moscow';
+  // Saturday 10 Oct 2026, 12:00 in Moscow.
+  const now = Date.parse('2026-10-10T09:00:00Z');
+
+  it('says today and tomorrow with the time', () => {
+    expect(billboardSubtitle('2026-10-10T17:00:00Z', tz, now)).toBe('Сегодня в 20:00');
+    expect(billboardSubtitle('2026-10-11T17:00:00Z', tz, now)).toBe('Завтра в 20:00');
+  });
+
+  it('names the weekday within the next six days, in the right gender', () => {
+    const wednesday = Date.parse('2026-10-07T09:00:00Z');
+    expect(billboardSubtitle('2026-10-10T17:00:00Z', tz, wednesday)).toBe('Уже в эту субботу');
+    expect(billboardSubtitle('2026-10-12T17:00:00Z', tz, now)).toBe('Уже в этот понедельник');
+    expect(billboardSubtitle('2026-10-16T17:00:00Z', tz, now)).toBe('Уже в эту пятницу');
+    expect(billboardSubtitle('2026-10-11T17:00:00Z', tz, wednesday)).toBe('Уже в это воскресенье');
+  });
+
+  it('falls back to the date further out', () => {
+    expect(billboardSubtitle('2026-10-20T17:00:00Z', tz, now)).toBe('вт, 20 окт в 20:00');
   });
 });

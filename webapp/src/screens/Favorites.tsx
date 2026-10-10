@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import { useFavorites } from '../lib/favorites';
 import { EmptyState } from '../ui/EmptyState';
-import { FavButton } from '../ui/FavButton';
+import { PosterCard } from '../ui/PosterRow';
 import { Skeleton } from '../ui/Skeleton';
 import styles from './Favorites.module.css';
 
@@ -36,15 +35,7 @@ export function Favorites() {
         <ul className={styles.grid}>
           {saved.map(({ event, past }) => (
             <li key={event.id} className={styles.cell} data-past={past || undefined}>
-              <Link to={`/events/${event.id}`} className={styles.card}>
-                <div className={styles.poster}>
-                  {event.poster ? <img src={event.poster.url} alt="" aria-hidden="true" loading="lazy" /> : null}
-                </div>
-                <span className={`${styles.name} t-h3`}>{event.title}</span>
-              </Link>
-              <div className={styles.fav}>
-                <FavButton eventId={event.id} />
-              </div>
+              <PosterCard event={event} variant="tall" now={now} />
             </li>
           ))}
         </ul>

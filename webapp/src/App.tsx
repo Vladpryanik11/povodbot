@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { StartGate } from './StartGate';
-import { Afisha } from './screens/Afisha';
 import { EventScreen } from './screens/EventScreen';
 import { Favorites } from './screens/Favorites';
+import { Home } from './screens/Home';
 import { MockPay } from './screens/MockPay';
 import { OrderScreen } from './screens/OrderScreen';
 import { ClaimScreen } from './screens/ClaimScreen';
@@ -25,7 +25,7 @@ export function App() {
         <div className={styles.app}>
           <Glow />
           <Routes>
-            <Route path="/" element={<Afisha />} />
+            <Route path="/" element={<Home />} />
             <Route path="/events/:id" element={<EventScreen />} />
             <Route path="/order/:id" element={<OrderScreen />} />
             <Route path="/mock-pay/:id" element={<MockPay />} />
