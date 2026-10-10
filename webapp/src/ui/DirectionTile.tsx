@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import type { Direction } from '../api/types';
 import { DIRECTION_ICONS, ICON_STROKE } from './icons';
 import styles from './DirectionTile.module.css';
@@ -6,10 +7,12 @@ interface DirectionTileProps {
   direction: Pick<Direction, 'title' | 'icon'>;
   selected: boolean;
   onSelect: () => void;
+  /** For tiles that are not a direction, such as «Все». */
+  iconOverride?: LucideIcon;
 }
 
-export function DirectionTile({ direction, selected, onSelect }: DirectionTileProps) {
-  const Icon = DIRECTION_ICONS[direction.icon];
+export function DirectionTile({ direction, selected, onSelect, iconOverride }: DirectionTileProps) {
+  const Icon = iconOverride ?? DIRECTION_ICONS[direction.icon];
   return (
     <button type="button" className={`${styles.tile} ${selected ? styles.selected : ''}`} aria-pressed={selected} onClick={onSelect}>
       <span className={styles.icon}>

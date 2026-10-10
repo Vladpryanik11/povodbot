@@ -1,5 +1,6 @@
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { StartGate } from './StartGate';
+import { Afisha } from './screens/Afisha';
 import { Kit } from './screens/Kit';
 import { useMainButtonState, useTheme } from './telegram/hooks';
 import { InPageMainButton } from './ui/InPageMainButton';
@@ -22,7 +23,7 @@ export function App() {
       <StartGate>
         <div className={styles.app}>
           <Routes>
-            <Route path="/" element={<Soon title="Афиша" />} />
+            <Route path="/" element={<Afisha />} />
             <Route path="/events/:id" element={<Soon title="Мероприятие" />} />
             <Route path="/order/:id" element={<Soon title="Заказ" />} />
             <Route path="/mock-pay/:id" element={<Soon title="Оплата" />} />
