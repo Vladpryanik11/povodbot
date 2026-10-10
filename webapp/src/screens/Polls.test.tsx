@@ -5,7 +5,6 @@ import { ApiError } from '../api/AppApi';
 import { MockApi } from '../api/mock/MockApi';
 import { createTg } from '../telegram/tg';
 import { renderScreen, T0 } from '../test/render';
-import { EventScreen } from './EventScreen';
 import { Polls } from './Polls';
 
 const activeCard = async () => (await screen.findByText('Что смотрим в пятницу?')).closest('section')!;
@@ -58,15 +57,6 @@ describe('Polls', () => {
     expect(screen.getByText('Новое голосование появится — напишем в боте.')).toBeInTheDocument();
   });
 
-  it('lets the guest vote right on the event card', async () => {
-    const api = new MockApi({ latencyMs: 0, now: () => T0 });
-    const vote = vi.spyOn(api, 'vote');
-    renderScreen(<EventScreen />, { at: '/events/e-film', path: '/events/:id', api });
-    const card = await activeCard();
-    await userEvent.click(within(card).getByRole('button', { name: /Отель «Гранд Будапешт»/ }));
-    expect(vote).toHaveBeenCalledWith('p-film', 'po-budapest');
-    expect(await within(card).findByText('4%')).toBeInTheDocument();
-  });
 });
 
 describe('Polls errors', () => {

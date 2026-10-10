@@ -1,41 +1,32 @@
 .page { padding-bottom: var(--s-24); }
 .loading { display: flex; flex-direction: column; gap: var(--s-12); padding: var(--s-16); }
-.body { display: flex; flex-direction: column; gap: var(--s-16); padding: var(--s-16) var(--s-16) 0; }
-.title {
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  hyphens: auto;
-}
-.titleLong { font-size: 1.0625rem; line-height: 1.375rem; }
+.body { display: flex; flex-direction: column; gap: 28px; padding: var(--s-16) var(--s-16) 0; }
 
-.stats {
-  list-style: none;
-  margin: 0;
-  padding: var(--s-12) var(--s-16);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-8);
-  border-radius: var(--r-16);
-  background: var(--surface-1);
+.pills { display: flex; flex-wrap: wrap; gap: var(--s-8); margin-bottom: -12px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
   border: 1px solid var(--border);
+  font: 500 0.8125rem/1rem var(--font-body);
+  color: var(--text-1);
 }
-.stats li { display: flex; flex-direction: column; gap: var(--s-4); font: 500 0.8125rem/1.125rem var(--font-body); }
-.iconAccent { color: var(--text-1); }
-.iconViolet { color: var(--text-2); }
-.iconMint { color: var(--text-2); }
 
-.place { display: flex; gap: var(--s-8); margin: 0; color: var(--text-2); }
-.place svg { flex: none; color: var(--text-3); }
-.place a { color: var(--text-1); }
+.place { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-4); margin: 0; color: var(--text-2); }
+.route {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--text-1);
+  font-weight: 500;
+}
 
 .section { display: flex; flex-direction: column; gap: var(--s-8); }
 .sectionTitle { margin: 0; }
 .description { margin: 0; color: var(--text-2); white-space: pre-line; }
-
 
 .tickets { gap: var(--s-12); }
 .offer {
@@ -51,5 +42,4 @@
 .offerName { font: 500 0.9375rem/1.375rem var(--font-body); }
 .offerPrice { color: var(--text-1); }
 .offerSeats { font: 500 0.8125rem/1.125rem var(--font-body); color: var(--text-2); }
-.summary { margin: 0; text-align: right; }
 .refund { margin: 0; font: 500 0.8125rem/1.125rem var(--font-body); color: var(--text-3); }

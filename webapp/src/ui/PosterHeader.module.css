@@ -1,0 +1,61 @@
+.header {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  color: #ffffff;
+  background: var(--surface-2);
+}
+.header[data-sold-out] img { filter: grayscale(1); }
+/* Bottom 40% fades into the page black; ≥ .65 under every line of text (spec v2 §3, §5). */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent 22%),
+    linear-gradient(to top, #000000, rgba(0, 0, 0, 0.75) 25%, rgba(0, 0, 0, 0.65) 45%, transparent 65%);
+}
+.top {
+  position: absolute;
+  top: calc(var(--s-12) + env(safe-area-inset-top));
+  left: var(--s-16);
+  right: var(--s-16);
+  display: flex;
+  justify-content: space-between;
+}
+.back {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+}
+/* Tap zone stays ≥ 44 px around the 40 px circle. */
+.back::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+.bottom {
+  position: absolute;
+  inset: auto var(--s-16) var(--s-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+.meta { font: 500 0.8125rem/1rem var(--font-body); color: #ffffff; }
+.title {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.titleLong { font-size: 1.375rem; line-height: 1.625rem; }
+.when { margin: 0; font: 500 0.9375rem/1.25rem var(--font-body); color: #ffffff; }

@@ -1,4 +1,4 @@
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { buildFixtures } from '../api/mock/fixtures';
@@ -11,29 +11,60 @@ const at = (id: string) => ({ at: `/events/${id}`, path: '/events/:id' });
 const add = () => userEvent.click(screen.getByRole('button', { name: /Входной: .*Добавить/ }));
 
 describe('EventScreen', () => {
-  it('sums the cart and puts the total on the main button', async () => {
+  it('starts the bottom bar at the lowest price, then sums the cart there', async () => {
     renderScreen(<EventScreen />, at('e-film'));
     expect(await screen.findByRole('heading', { name: 'Амели на большом экране' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Выберите билеты' })).toBeDisabled();
+    expect(await screen.findByText('от 1 550 ₽')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Купить' })).toBeEnabled();
     await add();
     await add();
-    await add();
-    expect(screen.getByText('3 билета · 4 650 ₽')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /^Оплатить 4\s650\s₽$/ })).toBeEnabled();
+    expect(await screen.findByText('2 билета · 3 100 ₽')).toBeInTheDocument();
+    expect(screen.queryByText('от 1 550 ₽')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Купить' })).toBeEnabled();
+  });
+
+  it('with no tickets picked, «Купить» leads to the tickets block instead of buying', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    const createOrder = vi.spyOn(api, 'createOrder');
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderScreen(<EventScreen />, { ...at('e-film'), api });
+    await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(screen.getByRole('region', { name: 'Билеты' }));
+    expect(createOrder).not.toHaveBeenCalled();
   });
 
   it('says there are no seats for a sold-out evening', async () => {
     renderScreen(<EventScreen />, at('e-workshop-2'));
     expect(await screen.findByRole('button', { name: 'Мест нет' })).toBeDisabled();
+    expect(screen.queryByText(/^от /)).toBeNull();
   });
 
-  it('shows the poll question and the undecided venue', async () => {
+  it('has no poll block any more', async () => {
     renderScreen(<EventScreen />, at('e-film'));
-    expect(await screen.findByText('Что смотрим в пятницу?')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
+    expect(screen.queryByText('Что смотрим в пятницу?')).toBeNull();
+  });
+
+  it('shows the poster header: back, heart, direction, date', async () => {
+    renderScreen(<EventScreen />, at('e-film'));
+    const title = await screen.findByRole('heading', { level: 1, name: 'Амели на большом экране' });
+    const header = title.closest('header')!;
+    expect(await within(header).findByText('Киновечер · 18+')).toBeInTheDocument();
+    expect(within(header).getByText('сб, 10 окт · 23:00')).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: 'В избранное' })).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: 'Назад' })).toBeInTheDocument();
+  });
+
+  it('gives the address with a route link, or promises it in the bot', async () => {
+    const tg = createTg();
+    const openLink = vi.spyOn(tg, 'openLink').mockImplementation(() => undefined);
+    renderScreen(<EventScreen />, { ...at('e-film'), tg });
+    await userEvent.click(await screen.findByRole('link', { name: 'Построить маршрут' }));
+    expect(openLink).toHaveBeenCalledWith(expect.stringContaining('http'));
     renderScreen(<EventScreen />, at('e-book'));
-    expect(
-      await screen.findByText('Место пока уточняется. Напишем в боте, как только определимся.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Адрес пришлём в бот')).toBeInTheDocument();
   });
 
   it('creates one order on a double tap, keeps the phone-side id and opens the bank page', async () => {
@@ -45,7 +76,7 @@ describe('EventScreen', () => {
     renderScreen(<EventScreen />, { ...at('e-film'), api, tg });
     await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
-    const pay = await screen.findByRole('button', { name: /^Оплатить/ });
+    const pay = await screen.findByRole('button', { name: 'Купить' });
     await userEvent.dblClick(pay);
     expect(await screen.findByText('/order/o-1', { selector: 'output' })).toBeInTheDocument();
     expect(createOrder).toHaveBeenCalledTimes(1);
@@ -61,7 +92,7 @@ describe('EventScreen', () => {
     renderScreen(<EventScreen />, { ...at('e-film'), api });
     await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
-    await userEvent.click(await screen.findByRole('button', { name: /^Оплатить/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
     expect(await screen.findByRole('dialog', { name: 'У вас уже есть бронь' })).toBeInTheDocument();
     expect(screen.getByText('Бронь на «Лепим чашку из глины» ждёт оплаты. Продолжить оплату или отменить?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
@@ -79,7 +110,7 @@ describe('EventScreen', () => {
     await add();
     await add();
     await add();
-    await userEvent.click(await screen.findByRole('button', { name: /^Оплатить/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
     expect(await screen.findByRole('dialog', { name: 'Мест стало меньше' })).toBeInTheDocument();
     expect(screen.getByText('Пока вы выбирали, осталось 2 места. Взять 2 билета?')).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith('warning');

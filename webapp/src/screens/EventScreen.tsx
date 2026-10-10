@@ -1,26 +1,23 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Clock, MapPin, Users } from 'lucide-react';
 import { useReducer, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import { ApiError } from '../api/AppApi';
 import type { EventDetail } from '../api/types';
 import { cartItems, cartReducer, cartTotal, fitCart, type CartState } from '../checkout/cart';
-import { formatDate, formatPrice, formatTime, plural, seatsLabel, ticketsLabel } from '../lib/format';
-import { usePollVote } from '../polls/usePollVote';
+import { formatPrice, seatsLabel, ticketsLabel } from '../lib/format';
 import { ACTIVE_ORDER_KEY } from '../start';
 import { useBackButton, useMainButton, useTg } from '../telegram/hooks';
 import { Dialog } from '../ui/Dialog';
 import { EmptyState } from '../ui/EmptyState';
+import { AttendeesStack } from '../ui/AttendeesStack';
 import { ErrorState } from '../ui/ErrorState';
-import { ICON_STROKE } from '../ui/icons';
-import { PhotoHeader } from '../ui/PhotoHeader';
-import { PollCard } from '../ui/PollCard';
+import { useGlow } from '../ui/Glow';
+import { PosterHeader } from '../ui/PosterHeader';
 import { Skeleton } from '../ui/Skeleton';
 import { Stepper } from '../ui/Stepper';
+import { useEventColor } from '../ui/useEventColor';
 import styles from './EventScreen.module.css';
-
-const LONG_TITLE = 28;
 
 type Problem =
   | { kind: 'active'; orderId: string; eventTitle: string }
@@ -34,12 +31,13 @@ export function EventScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const event = useQuery({ queryKey: ['event', id], queryFn: () => api.event(id) });
-  const directions = useQuery({ queryKey: ['directions'], queryFn: () => api.directions() });
   const [cart, dispatch] = useReducer(cartReducer, {} as CartState);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const inFlight = useRef(false);
-  const { vote, closedNow, failed, pending } = usePollVote();
+  const ticketsRef = useRef<HTMLElement>(null);
+  const color = useEventColor(event.data);
+  useGlow(color);
 
   const goBack = () => navigate(-1);
   useBackButton(goBack);
@@ -74,13 +72,24 @@ export function EventScreen() {
     }
   };
 
+  const toTickets = () => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    ticketsRef.current?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
+
   useMainButton(
     event.data
       ? soldOut
         ? { text: 'Мест нет', enabled: false, progress: false, onClick: () => undefined }
         : total.count === 0
-          ? { text: 'Выберите билеты', enabled: false, progress: false, onClick: () => undefined }
-          : { text: `Оплатить ${formatPrice(total.kopecks)}`, enabled: !submitting, progress: submitting, onClick: () => void pay() }
+          ? { text: 'Купить', enabled: true, progress: false, summary: `от ${formatPrice(event.data.minPriceKopecks)}`, onClick: toTickets }
+          : {
+              text: 'Купить',
+              enabled: !submitting,
+              progress: submitting,
+              summary: `${ticketsLabel(total.count)} · ${formatPrice(total.kopecks)}`,
+              onClick: () => void pay(),
+            }
       : null,
   );
 
@@ -113,57 +122,47 @@ export function EventScreen() {
   }
 
   const data = event.data;
-  const icon = directions.data?.find((d) => d.id === data.directionId)?.icon ?? 'film';
 
   return (
     <main className={styles.page}>
-      <PhotoHeader poster={data.poster} title={data.title} icon={icon} onBack={tg.isTelegram ? undefined : goBack} />
+      <PosterHeader event={data} color={color ?? '#000000'} onBack={goBack} />
       <div className={styles.body}>
-        <h1
-          className={`t-h1 ${styles.title} ${data.title.length > LONG_TITLE ? styles.titleLong : ''}`}
-          data-long={data.title.length > LONG_TITLE ? 'true' : 'false'}
-        >
-          {data.title}
-        </h1>
-        <Stats event={data} />
-        <p className={styles.place}>
-          <MapPin size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
-          {data.address ? (
-            <span>
-              {data.address}
-              {data.mapUrl ? (
-                <>
-                  {' · '}
-                  <a href={data.mapUrl} onClick={(e) => (e.preventDefault(), tg.openLink(data.mapUrl!))}>
-                    На карте
-                  </a>
-                </>
-              ) : null}
+        <div className={styles.pills}>
+          <span className={styles.pill}>18+</span>
+          {data.attendees.count > 0 ? (
+            <span className={styles.pill}>
+              <AttendeesStack count={data.attendees.count} avatars={data.attendees.avatars} />
             </span>
-          ) : (
-            <span>Место пока уточняется. Напишем в боте, как только определимся.</span>
-          )}
-        </p>
+          ) : null}
+        </div>
 
         <section className={styles.section} aria-labelledby="about">
-          <h2 id="about" className={`t-h3 ${styles.sectionTitle}`}>
+          <h2 id="about" className={`t-h2 ${styles.sectionTitle}`}>
             О вечере
           </h2>
           <p className={styles.description}>{data.description}</p>
         </section>
 
-        {data.poll ? (
-          <PollCard
-            poll={data.poll}
-            closedNow={closedNow.has(data.poll.id)}
-            failed={failed.has(data.poll.id)}
-            busy={pending === data.poll.id}
-            onVote={(optionId) => void vote(data.poll!, optionId)}
-          />
-        ) : null}
+        <section className={styles.section} aria-labelledby="where">
+          <h2 id="where" className={`t-h2 ${styles.sectionTitle}`}>
+            Где
+          </h2>
+          {data.address ? (
+            <p className={styles.place}>
+              {data.address}
+              {data.mapUrl ? (
+                <a href={data.mapUrl} className={styles.route} onClick={(e) => (e.preventDefault(), tg.openLink(data.mapUrl!))}>
+                  Построить маршрут
+                </a>
+              ) : null}
+            </p>
+          ) : (
+            <p className={styles.place}>Адрес пришлём в бот</p>
+          )}
+        </section>
 
-        <section className={`${styles.section} ${styles.tickets}`} aria-labelledby="tickets">
-          <h2 id="tickets" className={`t-h3 ${styles.sectionTitle}`}>
+        <section ref={ticketsRef} className={`${styles.section} ${styles.tickets}`} aria-labelledby="tickets">
+          <h2 id="tickets" className={`t-h2 ${styles.sectionTitle}`}>
             Билеты
           </h2>
           {data.ticketTypes.map((offer) => (
@@ -184,11 +183,6 @@ export function EventScreen() {
               />
             </div>
           ))}
-          {total.count > 0 ? (
-            <p className={`t-price ${styles.summary}`} aria-live="polite">
-              {ticketsLabel(total.count)} · {formatPrice(total.kopecks)}
-            </p>
-          ) : null}
           <p className={styles.refund}>Полный возврат — если до вечера больше 3 дней.</p>
         </section>
       </div>
@@ -222,25 +216,6 @@ export function EventScreen() {
         />
       ) : null}
     </main>
-  );
-}
-
-function Stats({ event }: { event: EventDetail }) {
-  return (
-    <ul className={styles.stats}>
-      <li>
-        <CalendarDays size={20} strokeWidth={ICON_STROKE} className={styles.iconAccent} aria-hidden="true" />
-        {formatDate(event.startsAt, event.timezone)}
-      </li>
-      <li>
-        <Clock size={20} strokeWidth={ICON_STROKE} className={styles.iconViolet} aria-hidden="true" />
-        {formatTime(event.startsAt, event.timezone)}
-      </li>
-      <li>
-        <Users size={20} strokeWidth={ICON_STROKE} className={styles.iconMint} aria-hidden="true" />
-        {event.soldOut ? 'мест нет' : `${event.seatsLeft} ${plural(event.seatsLeft, ['место', 'места', 'мест'])}`}
-      </li>
-    </ul>
   );
 }
 
