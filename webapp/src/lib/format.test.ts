@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { billboardSubtitle, dayKey, formatDate, formatDateTime, formatPrice, formatTime, seatsLabel, shortDay, ticketsLabel } from './format';
+import { billboardSubtitle, dayKey, formatDate, formatDateTime, formatDayMonth, formatPrice, formatTime, seatsLabel, shortDay, ticketsLabel } from './format';
 
 const NB = ' ';
 
@@ -82,5 +82,12 @@ describe('billboardSubtitle', () => {
 
   it('falls back to the date further out', () => {
     expect(billboardSubtitle('2026-10-20T17:00:00Z', tz, now)).toBe('вт, 20 окт в 20:00');
+  });
+});
+
+describe('formatDayMonth', () => {
+  it('gives the day and the short month, without the dot', () => {
+    expect(formatDayMonth('2026-10-25T20:00:00Z', 'Europe/Moscow')).toBe('25 окт');
+    expect(formatDayMonth('2026-09-20T17:00:00Z', 'Europe/Moscow')).toBe('20 сент');
   });
 });

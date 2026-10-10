@@ -16,7 +16,7 @@ export interface TelegramWebApp {
   colorScheme: ColorScheme;
   platform?: string;
   initData?: string;
-  initDataUnsafe: { start_param?: string };
+  initDataUnsafe: { start_param?: string; user?: { first_name: string; photo_url?: string } };
   ready?: () => void;
   expand?: () => void;
   disableVerticalSwipes?: () => void;
@@ -64,6 +64,8 @@ export interface TgFacade {
   readonly hasNativeMainButton: boolean;
   readonly colorScheme: ColorScheme;
   readonly startParam: string | null;
+  /** The guest as Telegram knows them; null outside Telegram. */
+  readonly user: { firstName: string; photoUrl: string | null } | null;
   ready(): void;
   expand(): void;
   disableVerticalSwipes(): void;
@@ -143,6 +145,9 @@ export function createTg(web?: TelegramWebApp): TgFacade {
       return prefersDark() ? 'dark' : 'light';
     },
     startParam: web?.initDataUnsafe.start_param ?? null,
+    user: web?.initDataUnsafe.user
+      ? { firstName: web.initDataUnsafe.user.first_name, photoUrl: web.initDataUnsafe.user.photo_url ?? null }
+      : null,
     ready: () => web?.ready?.(),
     expand: () => web?.expand?.(),
     disableVerticalSwipes: () => web?.disableVerticalSwipes?.(),

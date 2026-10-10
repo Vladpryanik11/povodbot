@@ -30,6 +30,13 @@ export function formatDate(iso: string, timeZone: string): string {
   return `${get('weekday')}, ${get('day')} ${get('month')}`;
 }
 
+/** «25 окт»: day and short month, as on a used ticket («Было · 25 окт»). */
+export function formatDayMonth(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone }).formatToParts(new Date(iso));
+  const get = (type: Intl.DateTimeFormatPartTypes) => (parts.find((p) => p.type === type)?.value ?? '').replace('.', '');
+  return `${get('day')} ${get('month')}`;
+}
+
 export function formatTime(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',

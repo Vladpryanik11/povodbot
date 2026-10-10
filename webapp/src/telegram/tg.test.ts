@@ -127,3 +127,17 @@ describe('main button colours', () => {
     tg.mainButton.set(null);
   });
 });
+
+describe('tg.user', () => {
+  it('takes the first name and photo from initDataUnsafe.user', () => {
+    const web = { colorScheme: 'dark', initDataUnsafe: { user: { first_name: 'Аня', photo_url: 'https://t.me/i/a.jpg' } } } as unknown as TelegramWebApp;
+    expect(createTg(web).user).toEqual({ firstName: 'Аня', photoUrl: 'https://t.me/i/a.jpg' });
+    const noPhoto = { colorScheme: 'dark', initDataUnsafe: { user: { first_name: 'Аня' } } } as unknown as TelegramWebApp;
+    expect(createTg(noPhoto).user).toEqual({ firstName: 'Аня', photoUrl: null });
+  });
+
+  it('is null outside Telegram or without a user', () => {
+    expect(createTg().user).toBeNull();
+    expect(createTg({ colorScheme: 'dark', initDataUnsafe: {} } as TelegramWebApp).user).toBeNull();
+  });
+});

@@ -1,0 +1,46 @@
+.fan { outline: none; touch-action: pan-y; }
+.fan:focus-visible { outline: 2px solid var(--text-1); outline-offset: 4px; border-radius: var(--r-20); }
+/* All cards share one cell; the track is as tall as the tallest ticket. */
+.track { display: grid; }
+.card {
+  grid-area: 1 / 1;
+  transform: translateX(var(--drag));
+  transition: transform 250ms ease-out, opacity 250ms ease-out;
+  z-index: 2;
+}
+.track[data-dragging] .card { transition: none; }
+.card[data-side='next'] {
+  transform: translateX(calc(92% + var(--drag))) rotate(6deg) scale(0.92);
+  opacity: 0.6;
+  z-index: 1;
+  cursor: pointer;
+}
+.card[data-side='prev'] {
+  transform: translateX(calc(-92% + var(--drag))) rotate(-6deg) scale(0.92);
+  opacity: 0.6;
+  z-index: 1;
+  cursor: pointer;
+}
+.card[data-far] { opacity: 0; pointer-events: none; }
+.dots { display: flex; justify-content: center; margin-top: var(--s-8); }
+.dot {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.dot[aria-selected='true']::after { background: var(--text-1); }

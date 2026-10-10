@@ -1,38 +1,12 @@
-.page { display: flex; flex-direction: column; gap: var(--s-16); padding: var(--s-24) var(--s-16); touch-action: pan-y; }
-.header { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-8); }
-.title { margin: 0; }
-.meta { margin: 0; color: var(--text-2); }
-.card {
+/* Ticket is screen − 48 wide; neighbours in the fan peek into the 24 px gutters (spec v2 §6). */
+.page {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--s-8);
-  padding: var(--s-20) var(--s-16);
-  border-radius: var(--r-28);
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  gap: var(--s-16);
+  padding: calc(var(--s-24) + env(safe-area-inset-top)) var(--s-24) var(--s-24);
+  overflow-x: clip;
 }
-.count { margin: var(--s-8) 0 0; font: 500 1.0625rem/1.375rem var(--font-display); }
-.hint { margin: 0; color: var(--text-2); }
-.code { margin: 0; color: var(--text-3); font: 500 0.8125rem/1.125rem var(--font-body); font-variant-numeric: tabular-nums; }
-.inactive { margin: var(--s-24) 0; color: var(--text-2); text-align: center; }
-.pager { display: flex; align-items: center; gap: var(--s-12); margin-top: var(--s-8); }
-.pageButton {
-  width: var(--tap);
-  height: var(--tap);
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.pageButton:disabled { color: var(--text-3); cursor: default; }
-.dots { display: flex; gap: var(--s-4); }
-.dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--text-3); }
-.dotActive { width: 18px; background: var(--text-1); }
+.inactive { margin: 0; color: var(--text-2); text-align: center; }
 .cached { margin: 0; text-align: center; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
 .actions { display: flex; flex-direction: column; gap: var(--s-8); }
 .address { margin: 0; color: var(--text-2); text-align: center; font: 500 0.8125rem/1.125rem var(--font-body); }
