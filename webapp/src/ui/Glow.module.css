@@ -1,0 +1,22 @@
+/* Registered so the colour itself interpolates: a gradient cannot be transitioned. */
+@property --poster {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+
+.glow {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 60vh;
+  /* Below in-flow content, above the body background. */
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(130% 55% at 50% 0%, color-mix(in srgb, var(--poster) 55%, transparent), transparent 70%);
+  transition: --poster 400ms ease-out, opacity 400ms ease-out;
+}
+.glow[data-off] { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glow { transition: none; }
+}

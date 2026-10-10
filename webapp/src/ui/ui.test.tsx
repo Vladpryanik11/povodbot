@@ -8,6 +8,7 @@ import { createTg, mainButtonStore } from '../telegram/tg';
 import { TgProvider } from '../telegram/hooks';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
+import { Glow, GlowProvider, useGlow } from './Glow';
 import { InPageMainButton } from './InPageMainButton';
 import { Poster } from './Poster';
 import { Stepper } from './Stepper';
@@ -140,3 +141,29 @@ function hexToRgb(hex: string): string {
   const n = parseInt(hex.slice(1), 16);
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
+
+describe('Glow', () => {
+  it('glow takes the colour of the mounted screen and clears on unmount', () => {
+    function Painted() {
+      useGlow('#D4537E');
+      return null;
+    }
+    const view = render(
+      <GlowProvider>
+        <Glow />
+        <Painted />
+      </GlowProvider>,
+    );
+    const glow = view.container.querySelector('[data-glow]')!;
+    expect(document.documentElement.style.getPropertyValue('--poster')).toBe('#D4537E');
+    expect(glow).not.toHaveAttribute('data-off');
+
+    view.rerender(
+      <GlowProvider>
+        <Glow />
+      </GlowProvider>,
+    );
+    expect(document.documentElement.style.getPropertyValue('--poster')).toBe('');
+    expect(view.container.querySelector('[data-glow]')).toHaveAttribute('data-off');
+  });
+});

@@ -9,6 +9,7 @@ import { Polls } from './screens/Polls';
 import { Tickets } from './screens/Tickets';
 import { TicketScreen } from './screens/TicketScreen';
 import { useMainButtonState, useTheme } from './telegram/hooks';
+import { Glow, GlowProvider } from './ui/Glow';
 import { InPageMainButton } from './ui/InPageMainButton';
 import { TabBar } from './ui/TabBar';
 import styles from './App.module.css';
@@ -21,9 +22,10 @@ export function App() {
   const mainButton = useMainButtonState();
 
   return (
-    <>
+    <GlowProvider>
       <StartGate>
         <div className={styles.app}>
+          <Glow />
           <Routes>
             <Route path="/" element={<Afisha />} />
             <Route path="/events/:id" element={<EventScreen />} />
@@ -39,6 +41,6 @@ export function App() {
         <TabBar hidden={!TAB_PATHS.has(pathname) || mainButton !== null} />
       </StartGate>
       <InPageMainButton />
-    </>
+    </GlowProvider>
   );
 }
