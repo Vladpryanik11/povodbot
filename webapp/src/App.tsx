@@ -1,6 +1,8 @@
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { StartGate } from './StartGate';
 import { Afisha } from './screens/Afisha';
+import { EventScreen } from './screens/EventScreen';
+import { MockPay } from './screens/MockPay';
 import { Kit } from './screens/Kit';
 import { useMainButtonState, useTheme } from './telegram/hooks';
 import { InPageMainButton } from './ui/InPageMainButton';
@@ -24,9 +26,9 @@ export function App() {
         <div className={styles.app}>
           <Routes>
             <Route path="/" element={<Afisha />} />
-            <Route path="/events/:id" element={<Soon title="Мероприятие" />} />
+            <Route path="/events/:id" element={<EventScreen />} />
             <Route path="/order/:id" element={<Soon title="Заказ" />} />
-            <Route path="/mock-pay/:id" element={<Soon title="Оплата" />} />
+            <Route path="/mock-pay/:id" element={<MockPay />} />
             <Route path="/tickets" element={<Soon title="Билеты" />} />
             <Route path="/tickets/:id" element={<Soon title="Билет" />} />
             <Route path="/claim/:token" element={<Soon title="Билет от друга" />} />

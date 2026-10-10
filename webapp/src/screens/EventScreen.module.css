@@ -1,0 +1,58 @@
+.page { padding-bottom: var(--s-24); }
+.loading { display: flex; flex-direction: column; gap: var(--s-12); padding: var(--s-16); }
+.body { display: flex; flex-direction: column; gap: var(--s-16); padding: var(--s-16) var(--s-16) 0; }
+.title { margin: 0; }
+
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-12) var(--s-16);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-8);
+  border-radius: var(--r-16);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+.stats li { display: flex; flex-direction: column; gap: var(--s-4); font: 500 0.8125rem/1.125rem var(--font-body); }
+.iconAccent { color: var(--accent-text); }
+.iconViolet { color: var(--icon-violet); }
+.iconMint { color: var(--icon-mint); }
+
+.place { display: flex; gap: var(--s-8); margin: 0; color: var(--text-2); }
+.place svg { flex: none; color: var(--text-3); }
+.place a { color: var(--accent-text); }
+
+.section { display: flex; flex-direction: column; gap: var(--s-8); }
+.sectionTitle { margin: 0; }
+.description { margin: 0; color: var(--text-2); white-space: pre-line; }
+
+.poll {
+  display: flex;
+  gap: var(--s-12);
+  align-items: center;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-16);
+  color: var(--text-1);
+  text-decoration: none;
+}
+.poll svg { color: var(--accent-text); flex: none; }
+.pollLabel { display: block; font: 600 0.75rem/1rem var(--font-body); color: var(--text-2); }
+.pollQuestion { display: block; font: 500 0.9375rem/1.375rem var(--font-body); }
+
+.tickets { gap: var(--s-12); }
+.offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-12) var(--s-12) var(--s-12) var(--s-16);
+  border-radius: var(--r-16);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+.offerName { font: 500 0.9375rem/1.375rem var(--font-body); }
+.offerPrice { color: var(--text-1); }
+.offerSeats { font: 500 0.8125rem/1.125rem var(--font-body); color: var(--text-2); }
+.summary { margin: 0; text-align: right; }
+.refund { margin: 0; font: 500 0.8125rem/1.125rem var(--font-body); color: var(--text-3); }
