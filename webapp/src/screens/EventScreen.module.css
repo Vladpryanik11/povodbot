@@ -27,18 +27,6 @@
 .sectionTitle { margin: 0; }
 .description { margin: 0; color: var(--text-2); white-space: pre-line; }
 
-.poll {
-  display: flex;
-  gap: var(--s-12);
-  align-items: center;
-  padding: var(--s-12) var(--s-16);
-  border-radius: var(--r-16);
-  color: var(--text-1);
-  text-decoration: none;
-}
-.poll svg { color: var(--accent-text); flex: none; }
-.pollLabel { display: block; font: 600 0.75rem/1rem var(--font-body); color: var(--text-2); }
-.pollQuestion { display: block; font: 500 0.9375rem/1.375rem var(--font-body); }
 
 .tickets { gap: var(--s-12); }
 .offer {

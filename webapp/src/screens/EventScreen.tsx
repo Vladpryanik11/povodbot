@@ -1,18 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Clock, MapPin, Users, Vote } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, Users } from 'lucide-react';
 import { useReducer, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import { ApiError } from '../api/AppApi';
-import type { EventDetail, Poll } from '../api/types';
+import type { EventDetail } from '../api/types';
 import { cartItems, cartReducer, cartTotal, fitCart, type CartState } from '../checkout/cart';
 import { formatDate, formatPrice, formatTime, plural, seatsLabel, ticketsLabel } from '../lib/format';
+import { usePollVote } from '../polls/usePollVote';
 import { ACTIVE_ORDER_KEY } from '../start';
 import { useBackButton, useMainButton, useTg } from '../telegram/hooks';
 import { Dialog } from '../ui/Dialog';
 import { ErrorState } from '../ui/ErrorState';
 import { ICON_STROKE } from '../ui/icons';
 import { PhotoHeader } from '../ui/PhotoHeader';
+import { PollCard } from '../ui/PollCard';
 import { Skeleton } from '../ui/Skeleton';
 import { Stepper } from '../ui/Stepper';
 import styles from './EventScreen.module.css';
@@ -34,6 +36,7 @@ export function EventScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const inFlight = useRef(false);
+  const { vote, closedNow, pending } = usePollVote();
 
   const goBack = () => navigate(-1);
   useBackButton(goBack);
@@ -132,7 +135,14 @@ export function EventScreen() {
           <p className={styles.description}>{data.description}</p>
         </section>
 
-        {data.poll ? <PollTeaser poll={data.poll} /> : null}
+        {data.poll ? (
+          <PollCard
+            poll={data.poll}
+            closedNow={closedNow.has(data.poll.id)}
+            busy={pending === data.poll.id}
+            onVote={(optionId) => void vote(data.poll!, optionId)}
+          />
+        ) : null}
 
         <section className={`${styles.section} ${styles.tickets}`} aria-labelledby="tickets">
           <h2 id="tickets" className={`t-h3 ${styles.sectionTitle}`}>
@@ -213,19 +223,6 @@ function Stats({ event }: { event: EventDetail }) {
         {event.soldOut ? 'мест нет' : `${event.seatsLeft} ${plural(event.seatsLeft, ['место', 'места', 'мест'])}`}
       </li>
     </ul>
-  );
-}
-
-/** Placeholder until the poll card lands (plan Task 11): shows the question and leads to the polls tab. */
-function PollTeaser({ poll }: { poll: Poll }) {
-  return (
-    <Link to="/polls" className={`glass ${styles.poll}`}>
-      <Vote size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
-      <span>
-        <span className={styles.pollLabel}>Голосование вечера</span>
-        <span className={styles.pollQuestion}>{poll.question}</span>
-      </span>
-    </Link>
   );
 }
 

@@ -1,0 +1,32 @@
+.card { display: flex; flex-direction: column; gap: var(--s-8); padding: var(--s-16); border-radius: var(--r-20); }
+.question { margin: 0; }
+.meta { margin: 0; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
+.options { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-8); }
+.option {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-8) var(--s-12);
+  border-radius: var(--r-12);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.option:active:not(:disabled) { transform: scale(0.98); }
+.option:disabled { cursor: default; }
+.chosen { border: 2px solid var(--accent); }
+.bar { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 18%, transparent); transition: width 300ms ease; }
+.label { position: relative; display: inline-flex; align-items: center; gap: var(--s-8); font: 500 0.9375rem/1.375rem var(--font-body); }
+.label svg { color: var(--accent-text); }
+.percent { position: relative; font: 700 0.875rem/1.25rem var(--font-body); font-variant-numeric: tabular-nums; color: var(--text-2); }
+.chosen .percent { color: var(--accent-text); }
+.note { margin: 0; color: var(--text-2); font: 500 0.8125rem/1.125rem var(--font-body); }
+.note strong { color: var(--text-1); font-weight: 600; }
