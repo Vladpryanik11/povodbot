@@ -1,0 +1,25 @@
+.bar {
+  position: fixed;
+  left: var(--s-16);
+  right: var(--s-16);
+  bottom: max(var(--s-12), env(safe-area-inset-bottom));
+  height: var(--nav-h);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-radius: var(--r-20);
+  z-index: 10;
+}
+.bar.glass { background: var(--glass-nav); }
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  color: var(--text-2);
+  text-decoration: none;
+  font: 600 0.75rem/1rem var(--font-body);
+  min-height: var(--tap);
+}
+.active { color: var(--accent-text); }
+.hidden { display: none; }

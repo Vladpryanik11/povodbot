@@ -1,0 +1,24 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--s-16) var(--s-16) max(var(--s-16), env(safe-area-inset-bottom));
+  background: rgba(10, 9, 12, 0.55);
+}
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--r-26);
+  padding: var(--s-24) var(--s-20) var(--s-20);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+.title { margin: 0; font: 500 1.0625rem/1.375rem var(--font-display); }
+.text { margin: 0; color: var(--text-2); }
+.actions { display: flex; flex-direction: column; gap: var(--s-8); margin-top: var(--s-8); }

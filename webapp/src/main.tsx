@@ -9,6 +9,12 @@ tg.ready();
 tg.expand();
 tg.disableVerticalSwipes();
 
+// Weak phones lag on backdrop blur; glass then becomes an opaque surface with the same contrast.
+const device = navigator as Navigator & { deviceMemory?: number };
+if ((device.hardwareConcurrency ?? 8) <= 4 || (device.deviceMemory ?? 8) <= 3) {
+  document.documentElement.classList.add('no-blur');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

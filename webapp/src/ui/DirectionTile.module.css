@@ -1,0 +1,27 @@
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+  min-width: 64px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-2);
+  font: 600 0.75rem/1rem var(--font-body);
+  cursor: pointer;
+}
+.icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+}
+.selected .icon { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); }
+.selected { color: var(--text-1); }
+.tile:active .icon { transform: scale(0.96); }

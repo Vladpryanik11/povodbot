@@ -1,0 +1,17 @@
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--s-8);
+  padding: var(--s-40) var(--s-24);
+}
+.icon { color: var(--text-3); margin-bottom: var(--s-4); }
+.title { margin: 0; font: 500 1.0625rem/1.375rem var(--font-display); }
+.text { margin: 0 0 var(--s-8); color: var(--text-2); max-width: 30ch; }
+.skeleton {
+  border-radius: var(--r-20);
+  background: var(--surface-2);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.55; } }
