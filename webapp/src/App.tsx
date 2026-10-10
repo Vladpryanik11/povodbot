@@ -8,7 +8,6 @@ import { ClaimScreen } from './screens/ClaimScreen';
 import { Polls } from './screens/Polls';
 import { Tickets } from './screens/Tickets';
 import { TicketScreen } from './screens/TicketScreen';
-import { Kit } from './screens/Kit';
 import { useMainButtonState, useTheme } from './telegram/hooks';
 import { InPageMainButton } from './ui/InPageMainButton';
 import { TabBar } from './ui/TabBar';
@@ -34,7 +33,6 @@ export function App() {
             <Route path="/tickets/:id" element={<TicketScreen />} />
             <Route path="/claim/:token" element={<ClaimScreen />} />
             <Route path="/polls" element={<Polls />} />
-            {import.meta.env.DEV ? <Route path="/kit" element={<Kit />} /> : null}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
