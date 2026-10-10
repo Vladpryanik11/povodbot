@@ -13,12 +13,12 @@ describe('EventScreen', () => {
   it('sums the cart and puts the total on the main button', async () => {
     renderScreen(<EventScreen />, at('e-film'));
     expect(await screen.findByRole('heading', { name: 'Повод для киновечера' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Выберите билеты' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Выберите билеты' })).toBeDisabled();
     await add();
     await add();
     await add();
     expect(screen.getByText('3 билета · 4 650 ₽')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Оплатить 4\s650\s₽$/ })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: /^Оплатить 4\s650\s₽$/ })).toBeEnabled();
   });
 
   it('says there are no seats for a sold-out evening', async () => {
@@ -44,7 +44,7 @@ describe('EventScreen', () => {
     renderScreen(<EventScreen />, { ...at('e-film'), api, tg });
     await screen.findByRole('heading', { name: 'Повод для киновечера' });
     await add();
-    const pay = screen.getByRole('button', { name: /^Оплатить/ });
+    const pay = await screen.findByRole('button', { name: /^Оплатить/ });
     await userEvent.dblClick(pay);
     expect(await screen.findByText('/order/o-1', { selector: 'output' })).toBeInTheDocument();
     expect(createOrder).toHaveBeenCalledTimes(1);
@@ -60,7 +60,7 @@ describe('EventScreen', () => {
     renderScreen(<EventScreen />, { ...at('e-film'), api });
     await screen.findByRole('heading', { name: 'Повод для киновечера' });
     await add();
-    await userEvent.click(screen.getByRole('button', { name: /^Оплатить/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Оплатить/ }));
     expect(await screen.findByRole('dialog', { name: 'У вас уже есть бронь' })).toBeInTheDocument();
     expect(screen.getByText('Бронь на «Настолки до утра» ждёт оплаты. Продолжить оплату или отменить?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
@@ -78,7 +78,7 @@ describe('EventScreen', () => {
     await add();
     await add();
     await add();
-    await userEvent.click(screen.getByRole('button', { name: /^Оплатить/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Оплатить/ }));
     expect(await screen.findByRole('dialog', { name: 'Мест стало меньше' })).toBeInTheDocument();
     expect(screen.getByText('Пока вы выбирали, осталось 2 места. Взять 2 билета?')).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith('warning');

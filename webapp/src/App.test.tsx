@@ -43,7 +43,7 @@ describe('App start', () => {
     const first = renderApp(api, tgWithStart('event_e-film'));
 
     expect(await screen.findByText('Привет, это «Повод»')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Заходим' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Заходим' }));
     expect(accept).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('/events/e-film', { selector: 'output' })).toBeInTheDocument();
     first.unmount();
