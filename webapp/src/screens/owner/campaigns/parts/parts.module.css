@@ -1,0 +1,63 @@
+.toolbar { display: flex; gap: var(--s-8); }
+.tool {
+  min-width: var(--tap);
+  min-height: 36px;
+  padding: 0 var(--s-12);
+  border: 0;
+  border-radius: var(--r-12);
+  color: var(--text-1);
+  font: 600 0.9375rem/1.25rem var(--font-body);
+  cursor: pointer;
+}
+.linkRow { display: grid; gap: var(--s-8); }
+.linkActions { display: flex; gap: var(--s-8); }
+.counter {
+  margin: 0;
+  justify-self: end;
+  color: var(--text-2);
+  font: 500 0.8125rem/1rem var(--font-body);
+}
+.over { color: var(--error); }
+.button {
+  display: grid;
+  gap: var(--s-12);
+  padding: var(--s-16);
+  border-radius: var(--r-16);
+}
+.count {
+  margin: 0;
+  color: var(--text-1);
+  font: 600 1rem/1.375rem var(--font-body);
+}
+.note {
+  margin: 0;
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.preview { margin: 0; display: grid; gap: var(--s-4); max-width: 320px; }
+.bubble {
+  overflow: hidden;
+  border-radius: var(--r-16) var(--r-16) var(--r-16) var(--s-4);
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+.bubbleImage { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.bubbleText {
+  margin: 0;
+  padding: var(--s-8) var(--s-12);
+  font: 400 0.9375rem/1.375rem var(--font-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubbleText a { color: #7cc4ff; }
+.placeholder { color: var(--text-3); }
+.keys { display: grid; gap: var(--s-4); }
+.key {
+  min-height: 1.125rem;
+  padding: var(--s-8);
+  border-radius: var(--r-12);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font: 500 0.875rem/1.125rem var(--font-body);
+  text-align: center;
+}

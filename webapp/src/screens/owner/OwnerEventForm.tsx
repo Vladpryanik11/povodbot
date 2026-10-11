@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MSG } from '../../api/owner/messages';
 import { OwnerApiError } from '../../api/owner/OwnerApi';
@@ -21,6 +21,7 @@ import { Button } from '../../ui/Button';
 import { Pill } from '../../ui/Pill';
 import { Skeleton } from '../../ui/Skeleton';
 import { Toggle } from '../../ui/Toggle';
+import { Field } from './Field';
 import { OwnerLoadError } from './OwnerLoadError';
 import { objectPosition, PosterSheet } from './PosterSheet';
 import { TicketRowsEditor } from './TicketRowsEditor';
@@ -403,45 +404,5 @@ function EventFormScreen({ id }: { id: string }) {
         <PosterSheet eventId={id} poster={event.poster} onDone={posterDone} onClose={() => setSheetOpen(false)} />
       ) : null}
     </main>
-  );
-}
-
-interface ControlProps {
-  id: string;
-  className: string;
-  'aria-describedby'?: string;
-  'aria-invalid'?: true;
-}
-
-/** A visible label over its control, and the error under it, tied by aria-describedby. */
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children(control: ControlProps): ReactNode;
-}) {
-  const errorId = `${id}-error`;
-  return (
-    <div className={styles.field}>
-      <label htmlFor={id} className={styles.label}>
-        {label}
-      </label>
-      {children({
-        id,
-        className: styles.input,
-        'aria-describedby': error ? errorId : undefined,
-        'aria-invalid': error ? true : undefined,
-      })}
-      {error ? (
-        <p id={errorId} className={styles.error}>
-          {error}
-        </p>
-      ) : null}
-    </div>
   );
 }
