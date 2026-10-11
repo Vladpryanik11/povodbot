@@ -18,6 +18,7 @@ from src.api.owner.campaign_schemas import (
     CampaignListItem,
     CampaignOut,
     CampaignPatch,
+    CampaignStatsOut,
     SaveAsTemplateInput,
     SendInput,
     TemplateInput,
@@ -41,6 +42,7 @@ from src.services.campaigns.content import CampaignFieldError
 from src.services.campaigns.launch import CampaignLauncher, QuietHours, send_test
 from src.services.campaigns.owner import CampaignConflict, CampaignLocked, OwnerCampaignService
 from src.services.campaigns.render import CampaignNotReady
+from src.services.campaigns.stats import campaign_stats
 from src.services.campaigns.telegram import (
     AiogramCampaignSender,
     CampaignSender,
@@ -126,6 +128,13 @@ async def get_campaign(campaign_id: UUID, _: Actor, session: Session) -> Campaig
     with campaign_errors():
         campaign = await OwnerCampaignService(session).get(campaign_id)
     return await campaign_out(session, campaign)
+
+
+@router.get("/campaigns/{campaign_id}/stats", response_model=CampaignStatsOut)
+async def get_campaign_stats(campaign_id: UUID, _: Actor, session: Session) -> CampaignStatsOut:
+    with campaign_errors():
+        stats = await campaign_stats(session, campaign_id)
+    return CampaignStatsOut.model_validate(stats, from_attributes=True)
 
 
 @router.post("/campaigns", response_model=CampaignOut, status_code=201)

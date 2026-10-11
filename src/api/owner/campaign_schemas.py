@@ -116,6 +116,17 @@ class AudienceCountOut(OwnerOut):
     over_limit: int
 
 
+class CampaignStatsOut(OwnerOut):
+    recipients: int
+    delivered: int
+    failed: int
+    failed_reasons: dict[str, int]
+    skipped_limit: int
+    clicked: int
+    anonymous_clicks: int
+    bought: int | None
+
+
 def _cover_url(cover_ref: str | None) -> str | None:
     if not cover_ref:
         return None
