@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
     database_timeout_seconds: int = Field(default=5, gt=0)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     campaign_rate_limit_per_second: int = Field(default=25, gt=0)
+    media_root: Path = Path("media")
 
     @field_validator("database_url", "redis_url")
     @classmethod
