@@ -52,3 +52,17 @@ async def test_other_errors_and_success_are_untouched():
     assert teapot.json() == {"detail": "short and stout"}
     assert fine.json() == {"ok": True}
     assert log == ["rollback HTTPException", "commit"]
+
+
+async def test_declared_body_over_the_limit_is_413_before_the_route_runs():
+    log: list[str] = []
+    transport = httpx.ASGITransport(app=app_with_failing_routes(log))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        over = await client.get("/fine", headers={"Content-Length": str(16 * 1024 * 1024 + 1)})
+        exact = await client.get("/fine", headers={"Content-Length": str(16 * 1024 * 1024)})
+        malformed = await client.get("/fine", headers={"Content-Length": "lots"})
+    assert over.status_code == 413
+    assert over.json() == {"message": "Файл больше 15 МБ"}
+    assert exact.json() == {"ok": True}
+    assert malformed.json() == {"ok": True}  # left to Starlette
+    assert log == ["commit", "commit"]  # the rejected request never reached the dependencies

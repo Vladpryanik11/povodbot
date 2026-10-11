@@ -1,6 +1,6 @@
 import asyncio
 from io import BytesIO
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from PIL import Image
@@ -273,3 +273,18 @@ async def test_upload_replaces_poster_of_published_event(pg_factory, owner_env, 
     assert event.cover_ref == second.json()["poster"]["url"].removeprefix("/media/").removesuffix(
         "-1080.webp"
     )
+
+
+async def test_oversized_content_length_is_413_before_auth(pg_factory, owner_env, media_root):
+    # FastAPI reads the whole multipart body before the auth dependency runs; the declared
+    # length is the only thing to go on before that.
+    async with client_for(pg_factory) as client:
+        response = await client.post(
+            f"/api/owner/events/{uuid4()}/poster",
+            files={"file": ("a.jpg", b"tiny", "image/jpeg")},
+            data={"focus_x": "0.5", "focus_y": "0.5"},
+            headers={"Content-Length": "20000000"},
+        )
+    assert response.status_code == 413
+    assert response.json() == {"message": "Файл больше 15 МБ"}
+    assert not (media_root / "posters").exists()
