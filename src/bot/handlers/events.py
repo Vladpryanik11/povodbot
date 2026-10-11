@@ -57,7 +57,7 @@ class EventHandler:
         if len(event.ticket_types) > 5:
             prices += f"\nЕщё типов билетов: {len(event.ticket_types) - 5}"
         details = (
-            f"\n{start} — {end} ({event.timezone})\n{event.address}\n"
+            f"\n{start} — {end} ({event.timezone})\n{event.address or 'Место уточняется'}\n"
             f"Вместимость: {event.capacity}\n{prices}"
         )
         budget = 4000 - len(event.title) - len(details) - 1

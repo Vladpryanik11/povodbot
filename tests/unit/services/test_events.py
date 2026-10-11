@@ -30,6 +30,7 @@ def draft(**changes):
             timezone="Europe/Moscow",
             address="Клуб Повод",
             capacity=20,
+            cover_ref="posters/test",
             ticket_types=[TicketTypeCommand(name="Обычный", price_kopecks=15000, limit=20)],
         ),
         **changes,

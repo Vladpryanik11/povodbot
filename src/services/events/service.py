@@ -1,5 +1,6 @@
+import re
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlsplit
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -7,7 +8,28 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from src.models.base import utcnow
 from src.models.events import Event, EventStatus, TicketType
 from src.repositories.events import EventRepository
+from src.repositories.orders import OrderRepository
 from src.repositories.reservations import ReservationRepository
+
+ACCENT_COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
+CLEARABLE_FIELDS = frozenset({"cover_ref", "map_url", "address", "accent_color"})
+
+
+class EventFieldError(ValueError):
+    """A rule violation tied to one form field, worded for the club owner."""
+
+    def __init__(self, field: str, message: str):
+        super().__init__(message)
+        self.field = field
+        self.message = message
+
+
+class EventConflict(Exception):
+    """The event cannot be changed this way right now; the owner has to refresh or step back."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
 
 
 @dataclass(frozen=True)
@@ -28,11 +50,12 @@ class CreateEventCommand:
     starts_at: datetime
     ends_at: datetime
     timezone: str
-    address: str
+    address: str | None
     capacity: int
     cover_ref: str | None = None
     map_url: str | None = None
     ticket_types: list[TicketTypeCommand] = field(default_factory=list)
+    accent_color: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +72,7 @@ class UpdateEventCommand:
     map_url: str | None = None
     ticket_types: list[TicketTypeCommand] | None = None
     status: EventStatus | None = None
+    accent_color: str | None = None
     # Allows the HTTP PATCH boundary to distinguish omitted nullable fields from explicit null.
     clear_fields: frozenset[str] = frozenset()
 
@@ -77,7 +101,7 @@ class PublicEventDTO:
     starts_at: datetime
     ends_at: datetime
     timezone: str
-    address: str
+    address: str | None
     map_url: str | None
     capacity: int
     ticket_types: tuple[PublicTicketTypeDTO, ...]
@@ -93,7 +117,7 @@ class EventDTO:
     starts_at: datetime
     ends_at: datetime
     timezone: str
-    address: str
+    address: str | None
     map_url: str | None
     capacity: int
     ticket_types: tuple[TicketTypeDTO, ...]
@@ -101,6 +125,11 @@ class EventDTO:
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    accent_color: str | None
+    cover_focus_x: float
+    cover_focus_y: float
+    cover_width: int | None
+    cover_height: int | None
 
 
 def card_fields(event: Event) -> dict[str, object]:
@@ -136,6 +165,11 @@ def event_dto(event: Event) -> EventDTO:
         published_at=event.published_at,
         created_at=event.created_at,
         updated_at=event.updated_at,
+        accent_color=event.accent_color,
+        cover_focus_x=event.cover_focus_x,
+        cover_focus_y=event.cover_focus_y,
+        cover_width=event.cover_width,
+        cover_height=event.cover_height,
     )
 
 
@@ -150,43 +184,71 @@ def public_dto(event: Event) -> PublicEventDTO:
     )
 
 
-def integer(value: int, minimum: int, maximum: int, label: str) -> None:
-    if type(value) is not int or not minimum <= value <= maximum:
-        raise ValueError(f"Invalid {label}")
+def touch(event: Event) -> None:
+    # updated_at is also the edit version, so it must change on every edit even on a coarse clock.
+    event.updated_at = max(utcnow(), event.updated_at + timedelta(microseconds=1))
+
+
+def valid_integer(value: object, minimum: int, maximum: int) -> bool:
+    return type(value) is int and minimum <= value <= maximum
+
+
+def focus_point(x: float, y: float) -> tuple[float, float]:
+    for value in (x, y):
+        if isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 1:
+            raise EventFieldError("focus", "Точка фокуса вне фото")
+    # The column keeps three decimals; round here so the returned DTO matches what is stored.
+    return round(float(x), 3), round(float(y), 3)
 
 
 def validate(command: CreateEventCommand) -> CreateEventCommand:
-    for value, maximum in [
-        (command.title, 256),
-        (command.description, 100000),
-        (command.address, 1024),
-    ]:
-        if not value.strip() or len(value) > maximum:
-            raise ValueError("Required event text is empty or too long")
-    integer(command.capacity, 1, 2147483647, "capacity")
+    if not command.title.strip():
+        raise EventFieldError("title", "Назови вечер")
+    if len(command.title) > 256:
+        raise EventFieldError("title", "Название длиннее 256 символов")
+    if not command.description.strip():
+        raise EventFieldError("description", "Добавь пару слов о вечере")
+    if len(command.description) > 100000:
+        raise EventFieldError("description", "Описание слишком длинное")
+    if command.address is not None and (not command.address.strip() or len(command.address) > 1024):
+        raise EventFieldError("address", "Укажи адрес или выбери «Место уточняется»")
+    if not valid_integer(command.capacity, 1, 2147483647):
+        raise EventFieldError("capacity", "Сколько мест?")
     if not command.timezone or len(command.timezone) > 128:
         raise ValueError("Invalid IANA timezone")
     try:
         ZoneInfo(command.timezone)
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise ValueError("Invalid IANA timezone") from exc
-    for timestamp in (command.starts_at, command.ends_at):
+    for name, timestamp in (("starts_at", command.starts_at), ("ends_at", command.ends_at)):
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
-            raise ValueError("Event timestamps must be timezone-aware")
+            raise EventFieldError(name, "Укажи дату и время")
     if command.ends_at.astimezone(UTC) <= command.starts_at.astimezone(UTC):
-        raise ValueError("Event end must follow start")
-    for reference in (command.cover_ref, command.map_url):
-        if reference is not None and (not reference.strip() or len(reference) > 2048):
-            raise ValueError("Invalid event reference")
+        raise EventFieldError("ends_at", "Конец должен быть позже начала")
+    if command.cover_ref is not None and (
+        not command.cover_ref.strip() or len(command.cover_ref) > 2048
+    ):
+        raise ValueError("Invalid event reference")
     if command.map_url is not None:
         url = urlsplit(command.map_url)
-        if url.scheme not in {"https", "http"} or not url.hostname or url.username or url.password:
-            raise ValueError("Invalid map URL")
+        if (
+            not command.map_url.strip()
+            or len(command.map_url) > 2048
+            or url.scheme not in {"https", "http"}
+            or not url.hostname
+            or url.username
+            or url.password
+        ):
+            raise EventFieldError("map_url", "Ссылка на карту не открывается")
+    if command.accent_color is not None and not ACCENT_COLOR.fullmatch(command.accent_color):
+        raise EventFieldError("accent_color", "Цвет в формате #RRGGBB")
     for ticket in command.ticket_types:
         if not ticket.name.strip() or len(ticket.name) > 256:
-            raise ValueError("Invalid ticket name")
-        integer(ticket.price_kopecks, 0, 9223372036854775807, "price")
-        integer(ticket.limit, 1, command.capacity if ticket.active else 2147483647, "ticket limit")
+            raise EventFieldError("ticket_types", "У билета нет названия")
+        if not valid_integer(ticket.price_kopecks, 0, 9223372036854775807):
+            raise EventFieldError("ticket_types", "Проверь цену билета")
+        if not valid_integer(ticket.limit, 1, command.capacity if ticket.active else 2147483647):
+            raise EventFieldError("ticket_types", "Проверь количество билетов")
         if ticket.currency != "RUB" or type(ticket.active) is not bool:
             raise ValueError("Invalid ticket currency or active state")
     return command
@@ -212,6 +274,7 @@ class EventService:
             address=command.address,
             map_url=command.map_url,
             capacity=command.capacity,
+            accent_color=command.accent_color,
             ticket_types=[self._new_ticket(t) for t in command.ticket_types],
         )
         return event_dto(await self.repository.create(event))
@@ -237,6 +300,7 @@ class EventService:
         await self._publication_requirements(command)
         event.status = EventStatus.PUBLISHED
         event.published_at = utcnow()
+        touch(event)
         await self.repository.save()
         return event_dto(event)
 
@@ -257,12 +321,17 @@ class EventService:
                 TicketTypeCommand(t.name, t.price_kopecks, t.limit, t.currency, t.active, t.id)
                 for t in event.ticket_types
             ],
+            event.accent_color,
         )
 
     async def _publication_requirements(self, command: CreateEventCommand) -> None:
         direction = await self.repository.direction(command.direction_id)
-        if not direction.active or not any(t.active for t in command.ticket_types):
-            raise ValueError("Publication requires an active direction and ticket type")
+        if not direction.active:
+            raise ValueError("Publication requires an active direction")
+        if not any(t.active for t in command.ticket_types):
+            raise EventFieldError("ticket_types", "Добавь хотя бы один билет")
+        if command.cover_ref is None:
+            raise EventFieldError("poster", "Без фото опубликовать нельзя")
 
     async def _capacity_edit_requirements(
         self, event_id: UUID, command: CreateEventCommand
@@ -270,18 +339,30 @@ class EventService:
         occupied = await ReservationRepository(self.repository.session).occupied_by_ticket(event_id)
         total_occupied = sum(occupied.values())
         if command.capacity < total_occupied:
-            raise ValueError("Capacity cannot be lower than already occupied seats")
+            raise EventFieldError("capacity", "Уже занято больше мест")
         by_id = {ticket.id: ticket for ticket in command.ticket_types if ticket.id is not None}
         for ticket_id, quantity in occupied.items():
             candidate = by_id.get(ticket_id)
             if candidate is None or not candidate.active or candidate.limit < quantity:
-                raise ValueError("Ticket limit cannot be lower than already occupied seats")
+                raise EventFieldError("ticket_types", "Уже продано больше билетов этого типа")
 
-    async def update(self, event_id: UUID, command: UpdateEventCommand) -> EventDTO:
-        event = await self.repository.get_for_update(event_id)
+    @staticmethod
+    def _require_editable(event: Event) -> None:
         if event.status in {EventStatus.CANCELLED, EventStatus.COMPLETED}:
             raise ValueError("Terminal events cannot be edited")
-        if not command.clear_fields <= {"cover_ref", "map_url"}:
+
+    async def update(
+        self,
+        event_id: UUID,
+        command: UpdateEventCommand,
+        *,
+        expected_updated_at: datetime | None = None,
+    ) -> EventDTO:
+        event = await self.repository.get_for_update(event_id)
+        if expected_updated_at is not None and event.updated_at != expected_updated_at:
+            raise EventConflict("Событие уже изменили — обнови")
+        self._require_editable(event)
+        if not command.clear_fields <= CLEARABLE_FIELDS:
             raise ValueError("Cannot clear required fields")
         status = command.status or EventStatus(event.status)
         if status != event.status:
@@ -327,7 +408,47 @@ class EventService:
                     for name in ("name", "price_kopecks", "currency", "limit", "active"):
                         setattr(ticket, name, getattr(ticket_command, name))
         event.status = status
-        event.updated_at = utcnow()
+        touch(event)
+        await self.repository.save()
+        return event_dto(event)
+
+    async def unpublish(self, event_id: UUID) -> EventDTO:
+        event = await self.repository.get_for_update(event_id)
+        if event.status != EventStatus.PUBLISHED:
+            raise ValueError("Only published events can be unpublished")
+        # Any order counts, expired ones included: a late payment can still arrive for them.
+        if await OrderRepository(self.repository.session).exists_for_event(event.id):
+            raise EventConflict("Уже есть брони — отменить можно будет через возвраты")
+        event.status = EventStatus.DRAFT
+        event.published_at = None
+        touch(event)
+        await self.repository.save()
+        return event_dto(event)
+
+    async def set_poster(
+        self, event_id: UUID, key: str, width: int, height: int, focus_x: float, focus_y: float
+    ) -> EventDTO:
+        focus = focus_point(focus_x, focus_y)
+        if not key.strip() or len(key) > 2048:
+            raise ValueError("Invalid event reference")
+        if not valid_integer(width, 1, 2147483647) or not valid_integer(height, 1, 2147483647):
+            raise ValueError("Invalid poster size")
+        event = await self.repository.get_for_update(event_id)
+        self._require_editable(event)
+        event.cover_ref = key
+        event.cover_width = width
+        event.cover_height = height
+        event.cover_focus_x, event.cover_focus_y = focus
+        touch(event)
+        await self.repository.save()
+        return event_dto(event)
+
+    async def set_poster_focus(self, event_id: UUID, focus_x: float, focus_y: float) -> EventDTO:
+        focus = focus_point(focus_x, focus_y)
+        event = await self.repository.get_for_update(event_id)
+        self._require_editable(event)
+        event.cover_focus_x, event.cover_focus_y = focus
+        touch(event)
         await self.repository.save()
         return event_dto(event)
 

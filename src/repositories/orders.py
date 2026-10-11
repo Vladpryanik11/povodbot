@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal, overload
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +18,9 @@ class OrderRepository:
         if event_id is None:
             raise LookupError("Order not found")
         return event_id
+
+    async def exists_for_event(self, event_id: UUID) -> bool:
+        return bool(await self.session.scalar(select(exists().where(Order.event_id == event_id))))
 
     @overload
     async def get_for_update(

@@ -31,6 +31,7 @@ def app_for(factory, admin=False):
 
 def payload(command):
     result = asdict(command)
+    result.pop("accent_color")  # the admin API does not expose the owner-only accent
     result["direction_id"] = str(command.direction_id)
     result["starts_at"] = command.starts_at.isoformat()
     result["ends_at"] = command.ends_at.isoformat()
