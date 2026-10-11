@@ -378,20 +378,24 @@ function EventFormScreen({ id }: { id: string }) {
           onChange={(tickets) => change({ tickets }, 'ticketTypes')}
         />
       </fieldset>
-      {readOnlyText ? null : event?.status === 'published' ? (
-        <div className={styles.publish}>
+      <div className={styles.publish}>
+        {readOnlyText ? null : event?.status === 'published' ? (
           <Button variant="secondary" wide loading={acting} onClick={() => void unpublish()}>
             Снять с публикации
           </Button>
-        </div>
-      ) : (
-        <div className={styles.publish}>
-          <Button wide disabled={gaps.length > 0} loading={acting} onClick={() => void publish()}>
-            Опубликовать
-          </Button>
-          {gaps.length > 0 ? <p className={styles.hint}>{`Чтобы опубликовать, добавь: ${gaps.join(', ')}`}</p> : null}
-        </div>
-      )}
+        ) : (
+          <>
+            <Button wide disabled={gaps.length > 0} loading={acting} onClick={() => void publish()}>
+              Опубликовать
+            </Button>
+            {gaps.length > 0 ? <p className={styles.hint}>{`Чтобы опубликовать, добавь: ${gaps.join(', ')}`}</p> : null}
+          </>
+        )}
+        {/* Unsaved input is already in the draft store (see change), so the preview reads it from there. */}
+        <Button variant="secondary" wide onClick={() => navigate(`/owner/events/${id}/preview`)}>
+          Как видит гость
+        </Button>
+      </div>
       {sheetOpen && event ? (
         <PosterSheet eventId={id} poster={event.poster} onDone={posterDone} onClose={() => setSheetOpen(false)} />
       ) : null}

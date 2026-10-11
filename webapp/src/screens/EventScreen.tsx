@@ -13,6 +13,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { AttendeesStack } from '../ui/AttendeesStack';
 import { ErrorState } from '../ui/ErrorState';
 import { useGlow } from '../ui/Glow';
+import { Pill } from '../ui/Pill';
 import { PosterHeader } from '../ui/PosterHeader';
 import { Skeleton } from '../ui/Skeleton';
 import { Stepper } from '../ui/Stepper';
@@ -24,30 +25,32 @@ type Problem =
   | { kind: 'seats'; seatsLeft: number }
   | { kind: 'network' };
 
-export function EventScreen() {
+/** The guest's evening screen. With `preview` it shows the owner's unsaved evening: nothing loads, nothing is bought. */
+export function EventScreen({ preview }: { preview?: EventDetail } = {}) {
   const { id = '' } = useParams();
   const api = useApi();
   const tg = useTg();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const event = useQuery({ queryKey: ['event', id], queryFn: () => api.event(id) });
+  const event = useQuery({ queryKey: ['event', id], queryFn: () => api.event(id), enabled: !preview });
+  const detail = preview ?? event.data;
   const [cart, dispatch] = useReducer(cartReducer, {} as CartState);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const inFlight = useRef(false);
   const ticketsRef = useRef<HTMLElement>(null);
-  const color = useEventColor(event.data);
+  const color = useEventColor(detail);
   useGlow(color);
 
   const goBack = () => navigate(-1);
   useBackButton(goBack);
 
-  const offers = event.data?.ticketTypes ?? [];
+  const offers = detail?.ticketTypes ?? [];
   const total = cartTotal(cart, offers);
-  const soldOut = event.data?.soldOut ?? false;
+  const soldOut = detail?.soldOut ?? false;
 
   const pay = async (items = cartItems(cart)) => {
-    if (inFlight.current || !event.data) return;
+    if (preview || inFlight.current || !event.data) return;
     inFlight.current = true;
     setSubmitting(true);
     try {
@@ -77,12 +80,12 @@ export function EventScreen() {
     ticketsRef.current?.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
-  useMainButton(
-    event.data
+  const bar =
+    detail
       ? soldOut
         ? { text: 'Мест нет', enabled: false, progress: false, onClick: () => undefined }
         : total.count === 0
-          ? { text: 'Купить', enabled: true, progress: false, summary: `от ${formatPrice(event.data.minPriceKopecks)}`, onClick: toTickets }
+          ? { text: 'Купить', enabled: true, progress: false, summary: `от ${formatPrice(detail.minPriceKopecks)}`, onClick: toTickets }
           : {
               text: 'Купить',
               enabled: !submitting,
@@ -90,10 +93,11 @@ export function EventScreen() {
               summary: `${ticketsLabel(total.count)} · ${formatPrice(total.kopecks)}`,
               onClick: () => void pay(),
             }
-      : null,
-  );
+      : null;
+  // The preview shows the guest's bar as is, but it takes no tap.
+  useMainButton(bar && preview ? { ...bar, enabled: false, progress: false } : bar);
 
-  if (event.error instanceof ApiError && event.error.code === 'not_found') {
+  if (!preview && event.error instanceof ApiError && event.error.code === 'not_found') {
     return (
       <EmptyState
         title="Вечер не найден"
@@ -102,7 +106,7 @@ export function EventScreen() {
       />
     );
   }
-  if (event.isError) {
+  if (!preview && event.isError) {
     return (
       <ErrorState
         title="Нет связи"
@@ -112,7 +116,7 @@ export function EventScreen() {
       />
     );
   }
-  if (!event.data) {
+  if (!detail) {
     return (
       <div className={styles.loading}>
         <Skeleton height={200} />
@@ -121,13 +125,14 @@ export function EventScreen() {
     );
   }
 
-  const data = event.data;
+  const data = detail;
 
   return (
     <main className={styles.page}>
       <PosterHeader event={data} color={color ?? '#000000'} onBack={goBack} />
       <div className={styles.body}>
         <div className={styles.pills}>
+          {preview ? <Pill tone="glass">Так увидит гость</Pill> : null}
           <span className={styles.pill}>18+</span>
           {data.attendees.count > 0 ? (
             <span className={styles.pill}>

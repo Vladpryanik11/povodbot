@@ -11,6 +11,20 @@ const at = (id: string) => ({ at: `/events/${id}`, path: '/events/:id' });
 const add = () => userEvent.click(screen.getByRole('button', { name: /Входной: .*Добавить/ }));
 
 describe('EventScreen', () => {
+  it('shows a preview without loading or buying', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    const detail = await api.event('e-film');
+    const event = vi.spyOn(api, 'event');
+    const createOrder = vi.spyOn(api, 'createOrder');
+    renderScreen(<EventScreen preview={detail} />, { ...at('x'), api });
+    expect(screen.getByText('Так увидит гость')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Амели на большом экране' })).toBeInTheDocument();
+    await add();
+    expect(screen.getByRole('button', { name: /Купить/ })).toBeDisabled();
+    expect(event).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
   it('starts the bottom bar at the lowest price, then sums the cart there', async () => {
     renderScreen(<EventScreen />, at('e-film'));
     expect(await screen.findByRole('heading', { name: 'Амели на большом экране' })).toBeInTheDocument();
