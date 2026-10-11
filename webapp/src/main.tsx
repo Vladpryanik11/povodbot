@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { ApiProvider } from './api/ApiProvider';
+import { OwnerApiProvider } from './api/owner/OwnerApiProvider';
 import { App } from './App';
 import { normalizeLaunchHash } from './start';
 import { tg } from './telegram/tg';
@@ -31,9 +32,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ApiProvider>
-        <HashRouter>
-          <App />
-        </HashRouter>
+        <OwnerApiProvider>
+          <HashRouter>
+            <App />
+          </HashRouter>
+        </OwnerApiProvider>
       </ApiProvider>
     </QueryClientProvider>
   </StrictMode>,

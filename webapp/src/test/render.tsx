@@ -5,6 +5,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { ApiProvider } from '../api/ApiProvider';
 import type { AppApi } from '../api/AppApi';
 import { MockApi } from '../api/mock/MockApi';
+import { MockOwnerApi } from '../api/owner/MockOwnerApi';
+import type { OwnerApi } from '../api/owner/OwnerApi';
+import { OwnerApiProvider } from '../api/owner/OwnerApiProvider';
 import { TgProvider } from '../telegram/hooks';
 import { createTg, type TgFacade } from '../telegram/tg';
 import { BottomBar } from '../ui/BottomBar';
@@ -17,6 +20,7 @@ export function Where() {
 
 interface Options {
   api?: AppApi;
+  ownerApi?: OwnerApi;
   tg?: TgFacade;
   /** Initial URL, e.g. '/events/e-film'. */
   at?: string;
@@ -27,6 +31,7 @@ interface Options {
 /** Renders a screen with the same providers as the app, at a route, plus the page bottom bar. */
 export function renderScreen(screen: ReactElement, options: Options = {}) {
   const api = options.api ?? new MockApi({ latencyMs: 0, now: () => T0 });
+  const ownerApi = options.ownerApi ?? new MockOwnerApi({ latencyMs: 0, now: () => T0 });
   const tg = options.tg ?? createTg();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const at = options.at ?? '/';
@@ -34,17 +39,19 @@ export function renderScreen(screen: ReactElement, options: Options = {}) {
     <QueryClientProvider client={client}>
       <TgProvider value={tg}>
         <ApiProvider api={api}>
-          <MemoryRouter initialEntries={[at]}>
-            <Routes>
-              <Route path={options.path ?? at} element={screen} />
-              <Route path="*" element={null} />
-            </Routes>
-            <Where />
-            <BottomBar />
-          </MemoryRouter>
+          <OwnerApiProvider api={ownerApi}>
+            <MemoryRouter initialEntries={[at]}>
+              <Routes>
+                <Route path={options.path ?? at} element={screen} />
+                <Route path="*" element={null} />
+              </Routes>
+              <Where />
+              <BottomBar />
+            </MemoryRouter>
+          </OwnerApiProvider>
         </ApiProvider>
       </TgProvider>
     </QueryClientProvider>,
   );
-  return { ...view, api, tg, client };
+  return { ...view, api, ownerApi, tg, client };
 }
