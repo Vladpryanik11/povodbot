@@ -9,9 +9,7 @@ from aiogram.types import User as TelegramUser
 from sqlalchemy import func, select
 
 from src.bot.router import create_router
-from src.models.identity import Consent, ConsentType, User
-from src.repositories.consents import ConsentRepository
-from src.services.consents.service import ConsentService
+from src.models.identity import Consent, User
 
 
 class TelegramTransport(BaseSession):
@@ -113,17 +111,14 @@ async def test_old_consent_buttons_just_show_the_menu(pg_factory):
         assert await session.scalar(select(func.count()).select_from(Consent)) == 0
 
 
-async def test_stop_revokes_marketing_and_replies_in_voice(pg_factory):
+async def test_stop_is_gone_and_gets_the_stray_text_reply(pg_factory):
     transport = TelegramTransport()
     bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
     await feed_start(pg_factory, bot)
     await feed_start(pg_factory, bot, "/stop")
-    assert transport.sent[-1].text.startswith("Ок, больше не пишем про новые вечера.")
+    assert transport.sent[-1].text.startswith("Мы тут отвечаем только на кнопки.")
     async with pg_factory() as session:
-        user = (await session.scalars(select(User))).one()
-        assert not await ConsentService(ConsentRepository(session)).is_active(
-            user.id, ConsentType.MARKETING
-        )
+        assert await session.scalar(select(func.count()).select_from(Consent)) == 0
 
 
 async def test_tickets_help_commands_and_unknown_text(pg_factory):
@@ -135,7 +130,7 @@ async def test_tickets_help_commands_and_unknown_text(pg_factory):
     assert transport.sent[-1].text == "Билетов пока нет. Загляни в приложение, там афиша."
     assert callbacks(transport) == ["events:menu"]
     await feed_start(pg_factory, bot, "/help")
-    assert "напиши нам" in transport.sent[-1].text
+    assert "напиши нам: https://t.me/vladpryanik" in transport.sent[-1].text
     await feed_start(pg_factory, bot, "что вы делаете?")
     assert transport.sent[-1].text.startswith("Мы тут отвечаем только на кнопки.")
     assert callbacks(transport) == ["tickets:mine", "support"]

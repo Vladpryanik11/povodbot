@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from src.bot import copy
 from src.bot.handlers.checkout import CheckoutHandler
 from src.bot.handlers.events import EventHandler
-from src.bot.handlers.settings import SettingsHandler
 from src.bot.handlers.start import BotResponse, StartHandler, menu_response
 from src.bot.handlers.support import SupportHandler
 from src.bot.handlers.tickets import TicketHandler
@@ -17,7 +16,6 @@ from src.bot.keyboards.events import events_keyboard
 from src.bot.keyboards.main_menu import back_to_menu
 from src.core.config import get_settings
 from src.db.session import get_session_factory
-from src.repositories.consents import ConsentRepository
 from src.repositories.directions import DirectionRepository
 from src.repositories.events import EventRepository
 from src.repositories.users import UserRepository
@@ -62,17 +60,6 @@ def create_router(
             response = await handler(session).start(message.from_user, command.args)
         # Commit persisted state before telling Telegram that the action succeeded.
         await message.answer(response.text, reply_markup=response.keyboard)
-
-    @router.message(Command("stop"), F.chat.type == "private")
-    async def stop(message: Message) -> None:
-        if message.from_user is None:
-            return
-        factory = session_factory or get_session_factory()
-        async with factory() as session, session.begin():
-            user = await UserRepository(session).by_telegram_id(message.from_user.id)
-            if user is not None:
-                await SettingsHandler(ConsentRepository(session)).unsubscribe_marketing(user.id)
-        await message.answer(copy.STOP_REPLY)
 
     async def personal_area_response(
         session: AsyncSession, sender: TelegramUser, what: str
@@ -208,7 +195,7 @@ def create_router(
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
 
-    @router.message(F.chat.type == "private", ~F.text.startswith("/"))
+    @router.message(F.chat.type == "private")
     async def unknown_text(message: Message) -> None:
         name = message.from_user.first_name if message.from_user else None
         menu = menu_response(name, app_url)

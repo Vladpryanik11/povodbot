@@ -8,7 +8,5 @@ class SupportHandler:
     contact: str = ""
 
     def answer(self) -> str:
-        contact = self.contact.strip()
-        if contact:
-            return copy.SUPPORT_WITH_CONTACT.format(contact=contact)
-        return copy.SUPPORT_NO_CONTACT
+        contact = self.contact.strip() or copy.SUPPORT_CONTACT_DEFAULT
+        return copy.SUPPORT_WITH_CONTACT.format(contact=contact)
