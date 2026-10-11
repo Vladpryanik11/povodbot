@@ -8,6 +8,7 @@ import { OrderScreen } from './screens/OrderScreen';
 import { Cabinet } from './screens/Cabinet';
 import { ClaimScreen } from './screens/ClaimScreen';
 import { TicketScreen } from './screens/TicketScreen';
+import { OwnerRoutes } from './screens/owner/OwnerRoutes';
 import { useTheme } from './telegram/hooks';
 import { Glow, GlowProvider } from './ui/Glow';
 import { BottomBar } from './ui/BottomBar';
@@ -35,6 +36,7 @@ export function App() {
             <Route path="/tickets" element={<Navigate to="/me" replace />} />
             <Route path="/tickets/:id" element={<TicketScreen />} />
             <Route path="/claim/:token" element={<ClaimScreen />} />
+            <Route path="/owner/*" element={<OwnerRoutes />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
