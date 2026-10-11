@@ -108,7 +108,6 @@ export interface Ticket {
 }
 
 export interface Me {
-  welcomeAccepted: boolean;
   activeOrder: Order | null;
   showInAttendees: boolean;
 }

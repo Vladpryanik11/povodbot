@@ -37,9 +37,9 @@ Mini App живёт на `MockApi`, а настоящий бэкенд до си
 
 - Нет роутера и зависимости `initData` для гостя (для владельца есть — `src/api/owner/auth.py`, переиспользовать).
 - Нет данных: голосования (`polls*`), передача билета (`ticket_shares`, `holder_user_id`),
-  короткий номер `short_code`, приветствие (`welcome_*`), `show_in_attendees`,
+  короткий номер `short_code`, `show_in_attendees`,
   `events.accent_color`, возраст и время входа, `attendees {count, avatars}`.
-- Нет эндпоинтов: `me`, `welcome/accept`, `events`, `orders` (+ идемпотентный повтор), `tickets`,
+- Нет эндпоинтов: `me`, `events`, `orders` (+ идемпотентный повтор), `tickets`,
   `share`/`claim` (claim должен быть идемпотентным для того же пользователя), `polls`/`vote`.
 - Публичный `/api/public/events` отдаёт сырой `cover_ref`; нужен `poster_out` → `Poster`.
 - Нет настроек `BOT_USERNAME`, `WEBAPP_URL`.
@@ -85,7 +85,7 @@ VPS и домен с HTTPS; образ Caddy, собирающий `webapp/` (с
 1. Касса 54-ФЗ на терминале: подключена ли, шлёт ли чеки автоматически (кабинет Т-Бизнеса).
 2. Отдельный терминал/магазин Т-Банка для API; `TerminalKey`, пароль, sandbox; одно- или двухстадийная оплата.
 3. VPS и домен; боевой токен бота, `@username`, регистрация Mini App в BotFather.
-4. Тексты: приветствие/согласие, оферта (с упоминанием бота и Mini App), политика ПДн,
+4. Тексты: согласие на ПДн (приветствия в приложении нет — решить, где брать), оферта (с упоминанием бота и Mini App), политика ПДн,
    контакт поддержки, возраст по вечерам (сейчас «18+» константой), список направлений.
 5. Telegram ID первого owner и людей на входе.
 6. Пушить ли `main` на GitHub (отстаёт на 68 коммитов).
@@ -98,7 +98,7 @@ VPS и домен с HTTPS; образ Caddy, собирающий `webapp/` (с
 | **0** | Ответы владельца H1–H7. Параллельно с кодом. | — | — |
 | **1** | **Бэкенд P0, платёж и билет** (A1–A5, A8, A10): webhook по `Token` + ответ `OK`, не откатывать статусы, исправить `CheckOrder`, `ticket.issued` → outbox → сообщение в бот, `SuccessURL`/`FailURL`, возврат с повтором, поздняя оплата → админ выдаёт билет или возвращает, `Receipt` по ответу H1, бесплатные билеты. HTTP-тест webhook. | 2 | H1, H2 |
 | **2** | **Бэкенд P0, эксплуатация** (A6, A7, A9, A11, A12, G-часть): воркер с try/except и SIGTERM, `restart:`, сервис миграций, Dockerfile с `migrations/`/`scripts/`, `/ready` по версии схемы, лимит броней, fail-closed config, закрыть `/docs` и `/metrics`, `lock_timeout`, FOR NO KEY UPDATE, логирование. | 1–2 | — |
-| **3** | **`/api/app`, чтение и заказ**: миграция 0010 (accent_color, show_in_attendees, welcome_*, short_code), роутер + initData, `me`, `welcome`, `events` (attendees, `poster_out`), `directions`, `orders` (создание, статус, отмена, одна активная бронь), HTTP-тесты, владение. | 2 | 1, 2 |
+| **3** | **`/api/app`, чтение и заказ**: миграция 0010 (accent_color, show_in_attendees, short_code), роутер + initData, `me`, `events` (attendees, `poster_out`), `directions`, `orders` (создание, статус, отмена, одна активная бронь), HTTP-тесты, владение. | 2 | 1, 2 |
 | **4** | **`/api/app`, билеты и голоса**: миграция 0011 (polls, ticket_shares, holder_user_id), `tickets`, `share`/`claim` (идемпотентно), `polls`/`vote`, отмена вечера → билет серый. | 1–2 | 3 |
 | **5** | **Подключение фронта**: `HttpAppApi`, `HttpOwnerApi`, провайдеры, возврат из банка, `start_param`, CloudStorage, Playwright-путь покупки. Чистка вторых слоёв моков. | 1–2 | 3, 4 |
 | **6** | **Вход по QR** (спека → план → код): роль «вход», сканирование камерой, причины отказа, имя гостя, «вечера сегодня», статус вечера. Сначала `superpowers:brainstorming`. | 2 | 1, 3 |

@@ -13,7 +13,6 @@ export function scenarioFromUrl(search: string = typeof window === 'undefined' ?
 
 export const SHARE_BASE_URL = 'https://t.me/povod_club_bot/app';
 const RESERVATION_MS = 10 * 60 * 1000;
-const WELCOME_KEY = 'povod.mock.welcome';
 
 interface MockApiOptions {
   scenario?: Scenario;
@@ -49,7 +48,6 @@ export class MockApi implements AppApi {
 
   me(): Promise<Me> {
     return this.call(() => ({
-      welcomeAccepted: readWelcome(),
       activeOrder: this.activeOrder(),
       showInAttendees: this.showInAttendees,
     }));
@@ -60,12 +58,6 @@ export class MockApi implements AppApi {
       this.showInAttendees = value;
     });
     return this.me();
-  }
-
-  acceptWelcome(): Promise<void> {
-    return this.call(() => {
-      writeWelcome();
-    });
   }
 
   directions(): Promise<Direction[]> {
@@ -374,20 +366,4 @@ function toCard(event: MockEvent): EventCard {
 function publicOrder(order: MockOrder): Order {
   const { reserved: _reserved, ...rest } = order;
   return { ...rest, items: rest.items.map((i) => ({ ...i })) };
-}
-
-function readWelcome(): boolean {
-  try {
-    return window.localStorage.getItem(WELCOME_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeWelcome(): void {
-  try {
-    window.localStorage.setItem(WELCOME_KEY, '1');
-  } catch {
-    // Private mode: the welcome shows again next time, which is harmless.
-  }
 }

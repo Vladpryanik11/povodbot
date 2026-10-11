@@ -22,7 +22,6 @@ export class ApiError extends Error {
 /** Contract of /api/app (spec section 5). Stage A implements it with MockApi. */
 export interface AppApi {
   me(): Promise<Me>;
-  acceptWelcome(): Promise<void>;
   setShowInAttendees(value: boolean): Promise<Me>;
   directions(): Promise<Direction[]>;
   events(directionId?: string): Promise<EventCard[]>;

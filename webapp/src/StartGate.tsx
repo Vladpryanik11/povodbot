@@ -3,20 +3,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from './api/ApiProvider';
 import type { Me } from './api/types';
 import { ACTIVE_ORDER_KEY, resolveStart } from './start';
-import { Welcome } from './screens/Welcome';
 import { useTg } from './telegram/hooks';
 import { Skeleton } from './ui/Skeleton';
 
-type Phase = 'loading' | 'welcome' | 'ready';
+type Phase = 'loading' | 'ready';
 
-/** Asks the server who the guest is, greets them once, then opens the right screen. */
+/** Asks the server who the guest is, then opens the right screen. */
 export function StartGate({ children }: { children: ReactNode }) {
   const api = useApi();
   const tg = useTg();
   const navigate = useNavigate();
   const location = useLocation();
   const [phase, setPhase] = useState<Phase>('loading');
-  const me = useRef<Me | null>(null);
   const started = useRef(false);
 
   const open = useCallback(
@@ -52,11 +50,7 @@ export function StartGate({ children }: { children: ReactNode }) {
     started.current = true;
     api
       .me()
-      .then((who) => {
-        me.current = who;
-        if (who.welcomeAccepted) return open(who);
-        setPhase('welcome');
-      })
+      .then(open)
       // Offline or server trouble: each screen shows its own error with a retry.
       .catch(() => setPhase('ready'));
   }, [api, open]);
@@ -66,16 +60,6 @@ export function StartGate({ children }: { children: ReactNode }) {
       <div style={{ padding: 16 }}>
         <Skeleton height={200} />
       </div>
-    );
-  }
-  if (phase === 'welcome') {
-    return (
-      <Welcome
-        onAccept={async () => {
-          await api.acceptWelcome();
-          await open(me.current ?? { welcomeAccepted: true, activeOrder: null, showInAttendees: false });
-        }}
-      />
     );
   }
   return <>{children}</>;

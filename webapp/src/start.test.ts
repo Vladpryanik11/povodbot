@@ -3,7 +3,6 @@ import type { Me, Order } from './api/types';
 import { normalizeLaunchHash, resolveStart } from './start';
 
 const me = (activeOrder: Partial<Order> | null = null): Me => ({
-  welcomeAccepted: true,
   activeOrder: activeOrder as Order | null,
   showInAttendees: false,
 });

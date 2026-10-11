@@ -22,7 +22,6 @@ export function App() {
 
   return (
     <GlowProvider>
-      {/* Outside the gate, so the welcome screen gets its glow too. */}
       <Glow />
       <StartGate>
         <div className={styles.app}>
