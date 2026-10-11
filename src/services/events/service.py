@@ -289,6 +289,9 @@ class EventService:
             active=ticket.active,
         )
 
+    async def get(self, event_id: UUID) -> EventDTO:
+        return event_dto(await self.repository.get(event_id))
+
     async def publish(self, event_id: UUID) -> EventDTO:
         event = await self.repository.get_for_update(event_id)
         if event.status != EventStatus.DRAFT:

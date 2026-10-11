@@ -88,3 +88,18 @@ class ReservationRepository:
             .group_by(OrderItem.ticket_type_id)
         )
         return {ticket_id: int(quantity) for ticket_id, quantity in result.all()}
+
+    async def occupied_by_events(self, event_ids: list[UUID]) -> dict[UUID, int]:
+        if not event_ids:
+            return {}
+        result = await self.session.execute(
+            select(Reservation.event_id, func.sum(OrderItem.quantity))
+            .join(ReservationItem, ReservationItem.reservation_id == Reservation.id)
+            .join(OrderItem, OrderItem.id == ReservationItem.order_item_id)
+            .where(
+                Reservation.event_id.in_(event_ids),
+                Reservation.status.in_([ReservationStatus.ACTIVE, ReservationStatus.CONVERTED]),
+            )
+            .group_by(Reservation.event_id)
+        )
+        return {event_id: int(quantity) for event_id, quantity in result.all()}

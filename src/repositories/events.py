@@ -9,6 +9,8 @@ from sqlalchemy.orm import selectinload
 from src.models.directions import Direction
 from src.models.events import Event, EventStatus, TicketType
 
+OWNER_LIVE_STATUSES = [EventStatus.DRAFT, EventStatus.PUBLISHED]
+
 
 class EventRepository:
     def __init__(self, session: AsyncSession):
@@ -52,8 +54,32 @@ class EventRepository:
             raise LookupError("Event not found")
         return event
 
+    async def get(self, event_id: UUID) -> Event:
+        event = await self.session.scalar(
+            select(Event)
+            .where(Event.id == event_id)
+            .options(selectinload(Event.ticket_types))
+            .execution_options(populate_existing=True)
+        )
+        if event is None:
+            raise LookupError("Event not found")
+        return event
+
     async def save(self) -> None:
         await self.session.flush()
+
+    async def list_for_owner(
+        self, filter: Literal["all", "draft", "past"], now: datetime
+    ) -> list[Event]:
+        query = select(Event).execution_options(populate_existing=True)
+        if filter == "past":
+            query = query.where(Event.status != EventStatus.CANCELLED, Event.ends_at < now)
+            query = query.order_by(Event.starts_at.desc(), Event.id)
+        else:
+            statuses = [EventStatus.DRAFT] if filter == "draft" else OWNER_LIVE_STATUSES
+            query = query.where(Event.status.in_(statuses), Event.ends_at >= now)
+            query = query.order_by(Event.starts_at, Event.id)
+        return list(await self.session.scalars(query))
 
     async def list_public(
         self,

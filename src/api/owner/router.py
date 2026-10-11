@@ -6,11 +6,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.owner.auth import get_owner_actor, require_owner_events
+from src.api.owner.errors import OwnerRoute
 from src.db.session import get_async_session
 from src.repositories.directions import DirectionRepository
 from src.services.admin.permissions import ROLE_PERMISSIONS, AdminActor
 
-router = APIRouter(prefix="/api/owner", tags=["owner"])
+router = APIRouter(prefix="/api/owner", tags=["owner"], route_class=OwnerRoute)
 
 
 class MeDTO(BaseModel):
