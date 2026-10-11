@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { CampaignRoutes } from './campaigns/CampaignRoutes';
 import { OwnerEventForm } from './OwnerEventForm';
 import { OwnerEvents } from './OwnerEvents';
 import { OwnerPreview } from './OwnerPreview';
@@ -10,6 +11,7 @@ export function OwnerRoutes() {
       <Route index element={<OwnerEvents />} />
       <Route path="events/:id" element={<OwnerEventForm />} />
       <Route path="events/:id/preview" element={<OwnerPreview />} />
+      <Route path="campaigns/*" element={<CampaignRoutes />} />
       <Route path="*" element={<Navigate to="/owner" replace />} />
     </Routes>
   );

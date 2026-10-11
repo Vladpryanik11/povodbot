@@ -1,0 +1,21 @@
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-4);
+  padding: var(--s-4);
+  margin-top: var(--s-8);
+  border-radius: var(--r-pill);
+}
+.tab {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+  font: 500 0.9375rem/1.25rem var(--font-body);
+  text-decoration: none;
+}
+.on {
+  background: var(--btn-primary);
+  color: var(--on-btn-primary);
+}

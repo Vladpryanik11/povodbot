@@ -34,6 +34,19 @@ describe('OwnerEvents', () => {
     expect(container.querySelector(`img[src="${LEGACY_POSTER_URL}"]`)).not.toBeNull();
   });
 
+  it('switches to broadcasts by the tab', async () => {
+    renderList();
+    await userEvent.click(await screen.findByRole('link', { name: 'Рассылки' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/owner/campaigns');
+    expect(await screen.findByRole('heading', { name: 'Рассылки' })).toBeInTheDocument();
+  });
+
+  it('has no tabs where broadcasts are not available', async () => {
+    renderList({ campaignApi: null });
+    await screen.findByText('Опубликовано · 18/30');
+    expect(screen.queryByRole('navigation', { name: 'Режим владельца' })).not.toBeInTheDocument();
+  });
+
   it('starts a new evening from the bottom bar', async () => {
     renderList();
     await userEvent.click(await screen.findByRole('button', { name: /Новый вечер/ }));

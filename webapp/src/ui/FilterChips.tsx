@@ -9,12 +9,15 @@ interface Props {
   onChange(id: string | null): void;
   /** Accessible name of the group. */
   label?: string;
+  /** Title of the chip for null; null: no such chip, one of the items is always chosen. */
+  allTitle?: string | null;
 }
 
 /** Chip filter, directions by default: «Все» is null; the chosen chip is white with black text. */
-export function FilterChips({ items, value, onChange, label = 'Направления' }: Props) {
+export function FilterChips({ items, value, onChange, label = 'Направления', allTitle = 'Все' }: Props) {
   const tg = useTg();
-  const all: { id: string | null; title: string }[] = [{ id: null, title: 'Все' }, ...items];
+  const all: { id: string | null; title: string }[] =
+    allTitle === null ? items : [{ id: null, title: allTitle }, ...items];
   return (
     <div className={styles.row} role="radiogroup" aria-label={label}>
       {all.map((item) => {

@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { ApiProvider } from './api/ApiProvider';
+import { CampaignApiProvider } from './api/campaigns/CampaignApiProvider';
 import { OwnerApiProvider } from './api/owner/OwnerApiProvider';
 import { App } from './App';
 import { normalizeLaunchHash } from './start';
@@ -33,9 +34,11 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ApiProvider>
         <OwnerApiProvider>
-          <HashRouter>
-            <App />
-          </HashRouter>
+          <CampaignApiProvider>
+            <HashRouter>
+              <App />
+            </HashRouter>
+          </CampaignApiProvider>
         </OwnerApiProvider>
       </ApiProvider>
     </QueryClientProvider>

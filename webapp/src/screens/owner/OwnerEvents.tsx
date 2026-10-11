@@ -13,6 +13,7 @@ import { FilterChips } from '../../ui/FilterChips';
 import { Pill } from '../../ui/Pill';
 import { Skeleton } from '../../ui/Skeleton';
 import { OwnerLoadError } from './OwnerLoadError';
+import { OwnerTabs } from './OwnerTabs';
 import styles from './OwnerEvents.module.css';
 
 const FILTERS = [
@@ -41,6 +42,7 @@ export function OwnerEvents() {
 
   return (
     <main className={styles.page}>
+      <OwnerTabs current="events" />
       <h1 className={`t-h1 ${styles.title}`}>Мои вечера</h1>
       {events.isError ? (
         <OwnerLoadError error={events.error} onRetry={() => void events.refetch()} />

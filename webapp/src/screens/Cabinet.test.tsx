@@ -105,6 +105,14 @@ describe('Cabinet owner mode', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Режим владельца' })).not.toBeInTheDocument());
   });
 
+  it('opens broadcasts for a role that only sends them', async () => {
+    const ownerApi = new MockOwnerApi({ latencyMs: 0 });
+    ownerApi.me = async () => ({ role: 'marketer', permissions: ['manage_campaigns'] });
+    renderScreen(<Cabinet />, { at: '/me', ownerApi });
+    await userEvent.click(await screen.findByRole('button', { name: 'Режим владельца' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/owner/campaigns');
+  });
+
   it('hides owner mode when the check fails', async () => {
     renderScreen(<Cabinet />, { at: '/me', ownerApi: new MockOwnerApi({ offline: true, latencyMs: 0 }) });
     await screen.findByRole('heading', { name: 'Поддержка' });

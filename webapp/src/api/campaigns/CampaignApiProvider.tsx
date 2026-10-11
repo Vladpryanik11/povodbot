@@ -27,3 +27,10 @@ export function useCampaignApi(): CampaignApi | null {
   const api = useContext(Context);
   return api === undefined ? getFallback() : api;
 }
+
+/** For screens behind CampaignRoutes, which only mount when the API exists. */
+export function useRequiredCampaignApi(): CampaignApi {
+  const api = useCampaignApi();
+  if (!api) throw new Error('Campaign screens need a CampaignApi');
+  return api;
+}

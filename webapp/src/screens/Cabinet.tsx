@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import type { Ticket } from '../api/types';
 import { formatDate, plural } from '../lib/format';
+import { useCampaignAccess } from '../owner/campaigns/useCampaignAccess';
 import { useOwnerAccess } from '../owner/useOwnerAccess';
 import { useTg } from '../telegram/hooks';
 import { STATUS_LABEL, useTickets } from '../tickets/useTickets';
@@ -29,7 +30,9 @@ export function Cabinet() {
   const queryClient = useQueryClient();
   const { tickets, isPending } = useTickets();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me() });
-  const isOwner = useOwnerAccess();
+  const ownsEvents = useOwnerAccess();
+  const ownsCampaigns = useCampaignAccess();
+  const isOwner = ownsEvents || ownsCampaigns;
   const privacy = useMutation({
     mutationFn: (value: boolean) => api.setShowInAttendees(value),
     onSuccess: (next) => queryClient.setQueryData(['me'], next),
@@ -126,7 +129,11 @@ export function Cabinet() {
           <h2 id="club" className={`t-h2 ${styles.heading}`}>
             Клуб
           </h2>
-          <ListRow icon={CalendarCog} label="Режим владельца" onClick={() => navigate('/owner')} />
+          <ListRow
+            icon={CalendarCog}
+            label="Режим владельца"
+            onClick={() => navigate(ownsEvents ? '/owner' : '/owner/campaigns')}
+          />
         </section>
       ) : null}
 
