@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Афиши Повода — концепция</title>
+<style>
+  :root {
+    --bg: #000; --surface: #151316; --surface-3: #1f1c22;
+    --text-1: #fff; --text-2: #b8b2b5; --text-3: #8f898c;
+    --border: rgba(255,255,255,.1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-1);
+    font: 16px/1.5 'Wix Madefor Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1, h2, h3 { font-family: 'Wix Madefor Display', system-ui, sans-serif; line-height: 1.2; margin: 0; }
+  h1 { font-size: 32px; letter-spacing: .01em; }
+  h2 { font-size: 22px; margin-top: 56px; }
+  h3 { font-size: 16px; }
+  p { color: var(--text-2); margin: 8px 0 0; max-width: 62ch; }
+  .lead { font-size: 18px; color: var(--text-1); max-width: 56ch; margin-top: 16px; }
+  .tag { display: inline-block; margin-top: 12px; padding: 4px 12px; border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text-3); font-size: 13px; }
+  .row { display: grid; gap: 16px; margin-top: 24px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 12px; }
+  .card h3 { margin-top: 12px; }
+  .card p { font-size: 14px; margin-top: 4px; }
+  .frame { position: relative; overflow: hidden; border-radius: 16px; background: var(--surface-3); }
+  .frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .r45 { aspect-ratio: 4 / 5; } .r169 { aspect-ratio: 16 / 9; } .r31 { aspect-ratio: 3 / 1; } .r21 { aspect-ratio: 2 / 1; }
+  .scrim { position: absolute; inset: auto 0 0 0; padding: 40px 14px 14px;
+    background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.6) 55%, transparent); }
+  .scrim b { display: block; font: 600 17px/1.2 'Wix Madefor Display', system-ui, sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  .scrim span { font-size: 13px; color: #ddd; }
+  .pill { position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(15,14,18,.6); font-size: 12px; font-weight: 600; }
+  .crops { display: grid; gap: 16px; margin-top: 24px; grid-template-columns: minmax(180px, 280px) 1fr; align-items: start; }
+  .crops .stack { display: grid; gap: 16px; }
+  .cap { color: var(--text-3); font-size: 13px; margin-bottom: 6px; }
+  .zones { position: relative; }
+  .zones .band { position: absolute; left: 0; right: 0; border-block: 1.5px dashed; display: flex; align-items: center; }
+  .zones .band i { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; margin-left: 6px; border-radius: 6px; background: #000c; }
+  .rules { display: grid; gap: 12px; margin-top: 24px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .rule { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+  .rule b { display: block; margin-bottom: 4px; }
+  .rule p { margin: 0; font-size: 14px; }
+  .ok b::before { content: '✓ '; color: #5fd0a8; } .no b::before { content: '✕ '; color: #ff7a7a; }
+  .tw { overflow-x: auto; margin-top: 24px; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-3); font-weight: 600; font-size: 13px; }
+  td:first-child { white-space: nowrap; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 8px; }
+  @media (max-width: 640px) { .crops { grid-template-columns: 1fr; } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Афиши «Повода»</h1>
+  <p class="lead">Один предмет — один повод. Афиша в приложении — это картинка без текста: один крупный предмет на глубоком цветном поле. Название и дату приложение печатает само.</p>
+  <span class="tag">Эскиз концепции · нарисован кодом · финальные афиши делаются по этому брифу</span>
+
+  <h2>1. Четыре направления — одна грамматика</h2>
+  <p>У каждого направления свой цвет поля, у всех одинаковые свет, зерно и воздух. Лента получается цельной, а подсветка вокруг афиши в приложении берёт один чистый оттенок вместо каши.</p>
+  <div class="row" id="directions"></div>
+
+  <h2>2. Что реально увидит гость</h2>
+  <p>Из одного мастера 4:5 приложение режет три формы, всегда по точке фокуса (здесь 50% / 42%). Предмет лежит в средней полосе, поэтому узнаётся во всех трёх.</p>
+  <div class="crops">
+    <div>
+      <div class="cap">«Скоро» · карточка 4:5</div>
+      <div class="frame r45"><img data-poster="film" data-pos="50% 42%" alt=""><span class="pill">Сегодня · 19:00</span>
+        <div class="scrim"><b>Амели на большом экране</b><span>Киновечер · 1 550 ₽</span></div></div>
+    </div>
+    <div class="stack">
+      <div>
+        <div class="cap">«На этой неделе» · 16:9</div>
+        <div class="frame r169"><img data-poster="film" data-pos="50% 42%" alt="">
+          <div class="scrim" style="padding-top:28px"><b>Амели на большом экране</b></div></div>
+      </div>
+      <div>
+        <div class="cap">Шапка события · 2:1</div>
+        <div class="frame r21"><img data-poster="film" data-pos="50% 42%" alt=""></div>
+      </div>
+      <div>
+        <div class="cap">Полоса билета · 3:1</div>
+        <div class="frame r31"><img data-poster="film" data-pos="50% 42%" alt=""></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>3. Безопасная зона</h2>
+  <p>Мастер 4:5 (минимум 800×1000). Всё важное — в средней полосе вокруг фокуса; верх и низ — «воздух». Нижняя треть отдана под название и скрим.</p>
+  <div class="crops">
+    <div class="zones">
+      <div class="frame r45"><img data-poster="film" data-pos="50% 42%" alt=""></div>
+      <div class="band" style="top:28.7%;height:26.6%;color:#ff8a3d"><i>3:1 билет</i></div>
+      <div class="band" style="top:19.5%;height:45%;color:#5fd0a8;border-style:dotted"><i>16:9</i></div>
+      <div class="band" style="top:65%;bottom:0;color:#ff7a7a;border-bottom:0"><i>скрим + название</i></div>
+    </div>
+    <div class="rules">
+      <div class="rule ok"><b>Одна горизонтальная композиция</b><p>Широкий или низкий предмет (лента, блюдце, раскрытая книга, ряд кубиков) целиком влезает в полосу 3:1.</p></div>
+      <div class="rule ok"><b>Один чистый цвет поля</b><p>Тёмный насыщенный оттенок направления. Подсветка вокруг афиши берёт его же.</p></div>
+      <div class="rule ok"><b>Мягкий боковой свет и зерно</b><p>Как свет проектора или настольной лампы: у предмета есть светлый край и мягкая тень.</p></div>
+      <div class="rule no"><b>Никакого текста на картинке</b><p>Название, дату и цену приложение пишет само; вшитый текст обрежется и задвоится.</p></div>
+      <div class="rule no"><b>Ни лиц на краях, ни логотипов</b><p>Края режутся первыми. Лица людей — только с их согласия и ближе к центру.</p></div>
+      <div class="rule no"><b>Не светлое поле и не белый фон</b><p>Приложение чёрное: белая афиша светит как дыра. Текст поверх неё не читается.</p></div>
+    </div>
+  </div>
+
+  <h2>4. Направления</h2>
+  <div class="tw"><table>
+    <tr><th>Направление</th><th>Цвет поля</th><th>Предмет</th><th>Идея кадра</th></tr>
+    <tr><td>Киновечер</td><td><span class="sw" style="background:#7A2840"></span>Винный #7A2840</td><td>Киноплёнка и бобина</td><td>Лента пересекает кадр, из бобины идёт тёплый свет проектора.</td></tr>
+    <tr><td>Мастерклассы</td><td><span class="sw" style="background:#8A3A1A"></span>Терракота #8A3A1A</td><td>Чашка и блюдце из глины</td><td>Чашка на блюдце, рядом пар. Видна фактура и след пальцев.</td></tr>
+    <tr><td>Книжный клуб</td><td><span class="sw" style="background:#2B3F7A"></span>Ночной синий #2B3F7A</td><td>Раскрытая книга</td><td>Книга и чашка чая; свет падает на страницы.</td></tr>
+    <tr><td>Игры</td><td><span class="sw" style="background:#5B2A86"></span>Фиолетовый #5B2A86</td><td>Ряд кубиков</td><td>Три кубика в разных ракурсах, один выпал «шесть».</td></tr>
+  </table></div>
+  <p>Цвета взяты из восьми проверенных цветов приложения (подложка без фото), так что при отсутствии афиши направление узнаётся и без неё.</p>
+
+  <h2>5. Памятка тому, кто готовит афишу</h2>
+  <div class="rules">
+    <div class="rule"><b>Формат</b><p>Вертикальный 4:5, от 800×1000, лучше 1600×2000. JPEG, PNG, WebP или HEIC. Приложение само сожмёт и вычистит метаданные.</p></div>
+    <div class="rule"><b>Загрузка</b><p>Режим владельца → вечер → «Сменить фото» → тапнуть на главное. Предмет попадёт в нужную полосу.</p></div>
+    <div class="rule"><b>Фото или рисунок</b><p>Подойдёт студийное фото предмета, 3D-рендер или иллюстрация. Главное — правила из пункта 3.</p></div>
+    <div class="rule"><b>Для соцсетей</b><p>Тот же мастер, но поверх добавляют название и дату уже отдельным слоем. Исходник без текста храним.</p></div>
+  </div>
+</main>
+
+<script>
+  // Эскизы: 800×1000, предмет в средней полосе (y 287–553), нижняя треть пустая.
+  const W = 800, H = 1000;
+  const grain = `<filter id="g" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0"/></filter>`;
+  const field = (c1, c2) => `
+    <defs>${grain}
+      <radialGradient id="bg" cx=".5" cy=".38" r=".85"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient>
+      <filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#000" flood-opacity=".55"/></filter>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>`;
+  const finish = `<rect width="${W}" height="${H}" filter="url(#g)"/>`;
+
+  const posters = {
+    film: () => `${field('#a23c5c', '#2a0d18')}
+      <rect x="0" y="388" width="${W}" height="64" fill="#140a0e" filter="url(#sh)"/>
+      ${Array.from({ length: 21 }, (_, i) => `<rect x="${i * 40 - 8}" y="395" width="20" height="12" rx="3" fill="#e9c9a0" opacity=".85"/><rect x="${i * 40 - 8}" y="433" width="20" height="12" rx="3" fill="#e9c9a0" opacity=".85"/>`).join('')}
+      <g filter="url(#sh)"><circle cx="400" cy="420" r="128" fill="#2b1118" stroke="#f0cf9b" stroke-width="6"/>
+      ${[0, 60, 120, 180, 240, 300].map(a => `<circle cx="${400 + 74 * Math.cos(a * Math.PI / 180)}" cy="${420 + 74 * Math.sin(a * Math.PI / 180)}" r="26" fill="#a23c5c"/>`).join('')}
+      <circle cx="400" cy="420" r="22" fill="#f0cf9b"/></g>
+      <path d="M528 420 L800 330 L800 510 Z" fill="#ffd9a0" opacity=".13"/>${finish}`,
+    craft: () => `${field('#b8532a', '#32140a')}
+      <ellipse cx="400" cy="540" rx="250" ry="30" fill="#2a1007" opacity=".6"/>
+      <g filter="url(#sh)"><ellipse cx="400" cy="512" rx="230" ry="38" fill="#d9a07a"/><ellipse cx="400" cy="504" rx="196" ry="26" fill="#e8b999"/>
+      <path d="M300 330 h200 l-18 160 q-82 28 -164 0 Z" fill="#e8b999"/><ellipse cx="400" cy="330" rx="100" ry="26" fill="#f4d3b8"/><ellipse cx="400" cy="334" rx="84" ry="18" fill="#6b2d12"/>
+      <path d="M498 372 q70 6 62 52 q-8 44 -66 38" fill="none" stroke="#e8b999" stroke-width="22" stroke-linecap="round"/></g>
+      <path d="M390 300 q-30 -34 0 -62 q30 -28 0 -62" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".22"/>
+      <path d="M430 304 q-26 -30 0 -54 q26 -24 0 -54" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".16"/>${finish}`,
+    book: () => `${field('#4a64b0', '#0b1230')}
+      <g filter="url(#sh)"><path d="M400 330 Q300 296 150 322 L150 540 Q300 516 400 548 Z" fill="#f2ead8"/><path d="M400 330 Q500 296 650 322 L650 540 Q500 516 400 548 Z" fill="#e6dcc3"/>
+      ${[0, 1, 2, 3, 4].map(i => `<path d="M${185 + 0} ${356 + i * 30} Q300 ${338 + i * 30} 372 ${362 + i * 30}" stroke="#a89c80" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M428 ${362 + i * 30} Q500 ${338 + i * 30} 615 ${356 + i * 30}" stroke="#9a8e72" stroke-width="5" fill="none" stroke-linecap="round"/>`).join('')}
+      <path d="M400 330 L400 548" stroke="#8a7e64" stroke-width="5"/></g>
+      <path d="M150 322 L400 330 L400 296 L160 292 Z" fill="#fff" opacity=".07"/>${finish}`,
+    games: () => {
+      const die = (x, y, s, r, pips) => `<g transform="translate(${x} ${y}) rotate(${r})" filter="url(#sh)"><rect x="${-s / 2}" y="${-s / 2}" width="${s}" height="${s}" rx="${s * .2}" fill="#f4eefc"/>
+        ${pips.map(([px, py]) => `<circle cx="${px * s * .26}" cy="${py * s * .26}" r="${s * .075}" fill="#3a1766"/>`).join('')}</g>`;
+      return `${field('#8a54c4', '#1d0b33')}
+      ${die(200, 440, 150, -12, [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]])}
+      ${die(400, 408, 170, 8, [[-1, -1], [0, 0], [1, 1]])}
+      ${die(604, 442, 150, -20, [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]])}${finish}`;
+    },
+  };
+
+  const url = key => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${posters[key]()}</svg>`);
+
+  document.querySelectorAll('img[data-poster]').forEach(img => {
+    img.src = url(img.dataset.poster);
+    img.style.objectPosition = img.dataset.pos;
+  });
+
+  const dirs = [
+    ['film', 'Киновечер', 'Винное поле, тёплый свет проектора.'],
+    ['craft', 'Мастерклассы', 'Терракота, глина, пар над чашкой.'],
+    ['book', 'Книжный клуб', 'Ночной синий, свет на страницах.'],
+    ['games', 'Игры', 'Фиолетовое поле, кубики в движении.'],
+  ];
+  document.getElementById('directions').innerHTML = dirs.map(([key, name, note]) => `
+    <div class="card"><div class="frame r45"><img data-poster="${key}" data-pos="50% 42%" alt=""></div>
+    <h3>${name}</h3><p>${note}</p></div>`).join('');
+  document.querySelectorAll('#directions img').forEach(img => { img.src = url(img.dataset.poster); img.style.objectPosition = img.dataset.pos; });
+</script>
+</body>
+</html>
