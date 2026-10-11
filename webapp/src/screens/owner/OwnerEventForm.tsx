@@ -10,6 +10,7 @@ import {
   FORM_FIELDS,
   formFromEvent,
   formToInput,
+  instantOf,
   publishGaps,
   type EventForm,
   type FormField,
@@ -77,7 +78,9 @@ function EventFormScreen({ id }: { id: string }) {
   /** Unsaved input first, else the saved evening. */
   const form: EventForm | undefined = edited ?? (isNew ? blank : savedForm);
   const ready = form !== undefined && directions.data !== undefined && (isNew || event !== undefined);
-  const readOnlyText = event ? READ_ONLY[event.status] : undefined;
+  // Nothing marks an evening «completed» on its own: one that has ended is past whatever its status says.
+  const ended = event !== undefined && instantOf(event.endsAt) < Date.now();
+  const readOnlyText = event ? (READ_ONLY[event.status] ?? (ended ? READ_ONLY.completed : undefined)) : undefined;
 
   function change(patch: Partial<EventForm>, field: FormField) {
     if (!form) return;
@@ -231,7 +234,7 @@ function EventFormScreen({ id }: { id: string }) {
   }
 
   const fid = (name: string) => `${ids}-${name}`;
-  const status = event ? ownerStatus(event, false) : null;
+  const status = event ? ownerStatus(event, ended) : null;
   const gaps = publishGaps(form, Boolean(event?.poster));
 
   return (

@@ -81,10 +81,14 @@ export function toZonedIso(local: string, timeZone: string): string {
   return `${wall}${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
 }
 
+/** Any ISO 8601 instant → ms since the epoch. The server sends microseconds; keep milliseconds so every engine parses it. */
+export function instantOf(iso: string): number {
+  return Date.parse(iso.replace(/(\.\d{3})\d+/, '$1'));
+}
+
 /** Any ISO 8601 instant → 'YYYY-MM-DDTHH:mm' wall time in `timeZone`. */
 export function fromZonedIso(iso: string, timeZone: string): string {
-  // The server sends microseconds; keep milliseconds so every engine parses it.
-  const instant = Date.parse(iso.replace(/(\.\d{3})\d+/, '$1'));
+  const instant = instantOf(iso);
   const wall = new Date(instant + zoneOffsetMs(instant, timeZone));
   return wall.toISOString().slice(0, 16);
 }

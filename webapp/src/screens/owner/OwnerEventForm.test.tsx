@@ -1,10 +1,12 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MSG } from '../../api/owner/messages';
+import { MockOwnerApi } from '../../api/owner/MockOwnerApi';
 import { OwnerApiError } from '../../api/owner/OwnerApi';
+import { buildOwnerFixtures } from '../../api/owner/ownerFixtures';
 import { createTg } from '../../telegram/tg';
-import { renderScreen } from '../../test/render';
+import { renderScreen, T0 } from '../../test/render';
 import { OwnerRoutes } from './OwnerRoutes';
 
 // No timer between keystrokes: the big form re-renders on each one, and a full parallel run is slow enough already.
@@ -35,6 +37,13 @@ async function retitle(text: string) {
 }
 
 describe('OwnerEventForm', () => {
+  // The form tells past from upcoming by the clock; keep it on the fixtures' day. Timers stay real.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => vi.useRealTimers());
+
   it('creates a draft and moves to its address', async () => {
     renderForm('new');
     await fillNewEvening();
@@ -190,6 +199,22 @@ describe('OwnerEventForm', () => {
     renderForm('new');
     expect(await screen.findByRole('button', { name: 'Добавить фото' })).toBeDisabled();
     expect(screen.getByText('Фото добавишь после первого сохранения')).toBeInTheDocument();
+  });
+
+  it('opens an ended evening read-only while it is still published', async () => {
+    // Nothing moves an evening to «completed» on its own, so an ended one usually stays «published».
+    const fixtures = buildOwnerFixtures(T0);
+    fixtures.events.find((e) => e.id === 'e-own-past')!.status = 'published';
+    renderScreen(<OwnerRoutes />, {
+      at: '/owner/events/e-own-past',
+      path: '/owner/*',
+      ownerApi: new MockOwnerApi({ latencyMs: 0, now: () => T0, fixtures }),
+    });
+    expect(await screen.findByText('Вечер прошёл — править нельзя')).toBeInTheDocument();
+    expect(screen.getByText('Прошёл · 25/30')).toBeInTheDocument();
+    expect(screen.getByLabelText('Название')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Снять с публикации' })).not.toBeInTheDocument();
   });
 
   it('opens a past evening read-only', async () => {
