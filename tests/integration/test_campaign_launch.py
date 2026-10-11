@@ -181,6 +181,19 @@ async def test_unpublished_event_cancels_scheduled(db_session):
     assert await statuses(db_session, campaign.id) == {}
 
 
+async def test_send_rejects_unpublished_event_in_spec_words(db_session):
+    x, _, _ = await scenario(db_session)
+    campaign = await draft(db_session, event_id=x)
+    event = await db_session.get(Event, x)
+    event.status = EventStatus.CANCELLED
+
+    with pytest.raises(CampaignFieldError) as error:
+        await CampaignLauncher(db_session, ready_settings()).send(campaign.id, None, NOW)
+
+    assert (error.value.field, error.value.message) == ("event_id", "Вечер больше не опубликован")
+    assert campaign.status == CampaignStatus.DRAFT
+
+
 async def test_zero_recipients_rejected(db_session):
     campaign = await draft(db_session)
 

@@ -20,7 +20,7 @@ from src.models.events import Event, EventStatus
 from src.models.outbox import Outbox
 from src.services.campaigns.audience import audience_count, limited_user_ids
 from src.services.campaigns.content import CampaignFieldError, validate_body, validate_buttons
-from src.services.campaigns.owner import EVENT_NOT_PUBLISHED, CampaignLocked, OwnerCampaignService
+from src.services.campaigns.owner import CampaignLocked, OwnerCampaignService
 from src.services.campaigns.render import RenderedMessage, render
 from src.services.campaigns.telegram import CampaignSender
 from src.services.crm.segments import SegmentService
@@ -37,6 +37,9 @@ NO_RECIPIENTS = "Получателей нет"
 CANCEL_ONLY_SCHEDULED = "Отменить можно только запланированную рассылку"
 STOP_ONLY_RUNNING = "Остановить можно только идущую рассылку"
 EVENT_UNPUBLISHED = "event_unpublished"
+
+# Spec §10: the evening was published when the draft was made and is gone by the start.
+EVENT_GONE = "Вечер больше не опубликован"
 
 
 class QuietHours(Exception):
@@ -113,7 +116,7 @@ class CampaignLauncher:
         _check_content(campaign)
         event = await self._event(campaign)
         if _unpublished(campaign, event):
-            raise CampaignFieldError("event_id", EVENT_NOT_PUBLISHED)
+            raise CampaignFieldError("event_id", EVENT_GONE)
         placeholders = {index: "x" for index in range(len(campaign.buttons))}
         _render(campaign, event, placeholders, self.settings)
         sendable, _ = await audience_count(self.session, campaign.audience, now)
