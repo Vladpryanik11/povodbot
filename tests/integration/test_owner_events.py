@@ -173,6 +173,21 @@ async def test_publish_needs_poster(pg_factory, owner_env):
     assert response.json() == {"field": "poster", "message": "Без фото опубликовать нельзя"}
 
 
+async def test_publish_started_event_names_the_date(pg_factory, owner_env):
+    await make_admin(pg_factory)
+    start = datetime.now(UTC) - timedelta(hours=3)
+    async with client_for(pg_factory) as client:
+        created = await create_event(
+            client, startsAt=start.isoformat(), endsAt=(start + timedelta(hours=2)).isoformat()
+        )
+        await add_poster(pg_factory, created["id"])
+        response = await client.post(
+            f"/api/owner/events/{created['id']}/publish", headers=owner_headers(42)
+        )
+    assert response.status_code == 422
+    assert response.json() == {"field": "startsAt", "message": "Вечер уже начался — поменяй дату"}
+
+
 async def test_publish_and_unpublish_roundtrip(pg_factory, owner_env):
     await make_admin(pg_factory)
     async with client_for(pg_factory) as client:

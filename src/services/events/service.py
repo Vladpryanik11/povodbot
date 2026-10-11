@@ -299,7 +299,7 @@ class EventService:
         command = self._command(event)
         validate(command)
         if command.starts_at <= utcnow():
-            raise ValueError("Publication requires a future start")
+            raise EventFieldError("starts_at", "Вечер уже начался — поменяй дату")
         await self._publication_requirements(command)
         event.status = EventStatus.PUBLISHED
         event.published_at = utcnow()

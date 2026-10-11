@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -40,6 +40,17 @@ async def test_publish_requires_poster(db_session):
         await events.publish(created.id)
     assert info.value.field == "poster"
     assert info.value.message == "Без фото опубликовать нельзя"
+
+
+async def test_publish_past_start_names_the_date_field(db_session):
+    events = service(db_session)
+    start = datetime.now(UTC) - timedelta(hours=3)
+    started = await events.create_draft(draft(starts_at=start, ends_at=start + timedelta(hours=2)))
+    with pytest.raises(EventFieldError) as info:
+        await events.publish(started.id)
+    assert info.value.field == "starts_at"
+    assert info.value.message == "Вечер уже начался — поменяй дату"
+    assert isinstance(info.value, ValueError)
 
 
 async def test_field_error_names_field(db_session):
