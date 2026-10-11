@@ -2,7 +2,7 @@
 
 ## Сделано
 
-Этап А (визуал Mini App на mock-данных) — ветка `miniapp-design`, не слита и не запушена.
+Этап А (визуал Mini App на mock-данных) — ветка `miniapp-design` слита в `main` 2026-10-11, не запушена.
 
 - План `plans/2026-10-10-povod-miniapp-visual.md`: 12 задач + финальное ревью и фикс-пасс.
 - 107 тестов зелёные, `tsc` чистый, сборка ~100 kB gzip.
@@ -10,12 +10,12 @@
 - Контракт данных для этапа Б: `webapp/src/api/AppApi.ts` и `webapp/src/api/types.ts`.
 - **Визуал v2 готов (2026-10-11):** план `plans/2026-10-11-povod-miniapp-visual-v2.md`, задачи 1–14 — чёрная тема и шрифты Wix Madefor, ореол цвета афиши, меню Дом · Избранное · Кабинет, пилюля «Сегодня», своя нижняя панель вместо MainButton, экран события v2, бумажный билет с перфорацией и веером, Кабинет, голос на «ты» (тест `src/copy.test.ts` ловит «вы»), reduced motion и `.no-blur`. 175 тестов зелёные, `tsc` чистый, сборка ~106 kB gzip. Финальное ревью — самопроверка исполнителя (сабагент-ревьюер владелец отклонил); два важных замечания исправлены (избранное затиралось при раннем тапе; офлайн-«Избранное» показывало «пусто»). Решения исполнителя — строки `Ruling:` в журнале `.superpowers/sdd/2026-10-11-povod-miniapp-visual-v2/progress.md` (git-ignored) и в итоговом сообщении сессии.
 
-**Режим владельца — бэкенд готов (2026-10-11)** — ветка `owner-events-backend`, не слита и не запушена. Спека `specs/2026-10-11-povod-owner-events-design.md`, план `plans/2026-10-11-povod-owner-events-backend.md`.
+**Режим владельца — бэкенд готов (2026-10-11)** — ветка `owner-events-backend` слита в `main` 2026-10-11, не запушена. Спека `specs/2026-10-11-povod-owner-events-design.md`, план `plans/2026-10-11-povod-owner-events-backend.md`.
 
 - Вход по `initData` (`Authorization: tma …`), права `MANAGE_EVENTS`. Эндпоинты `/api/owner`: `GET /me`, `GET /directions`, `GET /events?filter=all|draft|past`, `GET /events/{id}`, `POST /events`, `PATCH /events/{id}` (с проверкой версии `updatedAt`), `POST /events/{id}/publish`, `POST /events/{id}/unpublish`, `POST /events/{id}/poster` (multipart `file`, `focus_x`, `focus_y`), `PATCH /events/{id}/poster-focus`. Каждое изменение пишется в аудит (`owner.event.*`).
 - Афиша: JPEG/PNG/WebP/HEIC → три WebP (`-480`, `-1080`, `-master`) в `MEDIA_ROOT/posters/`, EXIF вычищен, цвета приведены к sRGB, прозрачность ложится на белое. В `docker-compose.yml` том `media` → `/app/media` у сервиса `api`.
 
-**Режим владельца — экраны на моках готовы (2026-10-11)** — ветка `owner-events-screens` (от `owner-events-backend`), не слита и не запушена. План `plans/2026-10-11-povod-owner-events-screens.md`, задачи 1–10.
+**Режим владельца — экраны на моках готовы (2026-10-11)** — ветка `owner-events-screens` слита в `main` 2026-10-11, не запушена. План `plans/2026-10-11-povod-owner-events-screens.md`, задачи 1–10.
 
 - Пункт «Режим владельца» в Кабинете (только с правом `manage_events`), «Мои вечера» с фильтрами, форма вечера (сохранение черновика, билеты, «Место уточняется», свой цвет афиши), публикация и снятие, прошедшие и отменённые — только чтение, шит постера (точка фокуса, три превью обрезки, загрузка), «Как видит гость» с несохранённым вводом. Всё на `MockOwnerApi` по контракту ниже.
 - 241 тест зелёные, `tsc` чистый, сборка 117.7 kB gzip JS + 7.6 kB CSS. Запуск: `/#/owner`, `?owner=guest|entrance`, `?scenario=offline`. В браузере пройден путь от Кабинета до публикации и снятия.
@@ -41,12 +41,11 @@
 
 ## Открытые вопросы владельцу
 
-- Ветка: слить в `main`, открыть PR или пока держать (`superpowers:finishing-a-development-branch`).
-- Ветки режима владельца (`owner-events-backend` → `owner-events-screens`): слить, открыть PR или держать.
+- Пушить ли `main` на GitHub: все три ветки слиты локально (перемоткой, 358 тестов бэкенда и 241 тест Mini App зелёные), `origin/main` отстаёт на 68 коммитов.
 
 ## Следующие шаги (на выбор владельца)
 
-1. Посмотреть визуал v2 в браузере (`cd webapp && npm run dev`) и решить судьбу ветки.
+1. Посмотреть визуал v2 в браузере (`cd webapp && npm run dev`).
 2. Этап Б: настоящий API в бэкенде по контракту `AppApi`, авторизация по `initData`, оплата T-Bank. Начинать с `superpowers:brainstorming`.
 3. Режим владельца, этап B: HTTP-клиент `OwnerApi` вместо мока (см. «Отложено (режим владельца, экраны)»). Начинать с `superpowers:writing-plans` по спеке владельца.
 4. Отложенные минорные замечания (ниже) — одной волной.
