@@ -43,9 +43,10 @@ async def upload_poster(
         raise OwnerApiError(429, {"message": UPLOAD_BUSY})
     async with lock:
         with owner_errors():
-            # Cheap checks first: nothing is decoded or stored for a bad focus or a missing event.
+            # Cheap checks first: nothing is decoded or stored for a bad focus, a missing event
+            # or one that can no longer be edited.
             focus_point(focus_x, focus_y)
-            await events.get(event_id)
+            await events.ensure_editable(event_id)
         # One byte over the limit is enough for store_poster to answer 413.
         data = await file.read(MAX_BYTES + 1)
         try:

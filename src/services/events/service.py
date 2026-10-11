@@ -354,6 +354,10 @@ class EventService:
         if event.status in {EventStatus.CANCELLED, EventStatus.COMPLETED}:
             raise ValueError("Terminal events cannot be edited")
 
+    async def ensure_editable(self, event_id: UUID) -> None:
+        """Raise the error an edit would, without changing anything."""
+        self._require_editable(await self.repository.get(event_id))
+
     async def update(
         self,
         event_id: UUID,

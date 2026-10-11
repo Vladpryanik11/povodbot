@@ -9,6 +9,8 @@ from sqlalchemy import select
 from src.api.owner import posters
 from src.core.config import get_settings
 from src.models.admin import AdminAuditLog
+from src.models.base import utcnow
+from src.models.events import Event, EventStatus
 from src.repositories.events import EventRepository
 from src.services.events.service import EventService
 from src.services.media.posters import MAX_BYTES
@@ -288,3 +290,22 @@ async def test_oversized_content_length_is_413_before_auth(pg_factory, owner_env
     assert response.status_code == 413
     assert response.json() == {"message": "Файл больше 15 МБ"}
     assert not (media_root / "posters").exists()
+
+
+@pytest.mark.parametrize("status", [EventStatus.CANCELLED, EventStatus.COMPLETED])
+async def test_upload_to_finished_event_stores_nothing(pg_factory, owner_env, media_root, status):
+    await make_admin(pg_factory)
+    async with client_for(pg_factory) as client:
+        created = await create_event(client)
+        await add_poster(pg_factory, created["id"])
+        before = await fetch(client, created["id"])
+        async with pg_factory() as session, session.begin():
+            event = await session.get(Event, UUID(created["id"]))
+            event.status = status
+            event.published_at = utcnow()
+        response = await upload(client, created["id"], jpeg((1200, 1500)))
+        after = await fetch(client, created["id"])
+    assert response.status_code == 422
+    assert response.json() == {"message": "Так изменить вечер нельзя"}
+    assert not (media_root / "posters").exists()  # refused before the photo was decoded or kept
+    assert after["poster"] == before["poster"]
