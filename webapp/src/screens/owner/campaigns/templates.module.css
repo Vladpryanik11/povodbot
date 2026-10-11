@@ -1,0 +1,58 @@
+.page { padding: var(--s-16); }
+.section { margin: var(--s-20) 0 0; }
+.sectionTitle { margin: 0 0 var(--s-12); }
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-12);
+}
+.card {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-4);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-16);
+  color: var(--text-1);
+  text-decoration: none;
+}
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  margin-top: var(--s-8);
+}
+.empty {
+  margin: 0;
+  color: var(--text-2);
+  font: 500 0.9375rem/1.25rem var(--font-body);
+}
+.hint {
+  margin: 0;
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.fields {
+  display: grid;
+  gap: var(--s-16);
+  border: 0;
+  margin: var(--s-16) 0 0;
+  padding: 0;
+  min-width: 0;
+}
+.banner { margin: var(--s-12) 0 0; color: var(--text-1); }
