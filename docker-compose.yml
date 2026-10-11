@@ -25,7 +25,11 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
-    environment: *app-environment
+    environment:
+      <<: *app-environment
+      MEDIA_ROOT: /app/media
+    volumes:
+      - media:/app/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,3 +79,4 @@ services:
       retries: 10
 volumes:
   postgres_data:
+  media:

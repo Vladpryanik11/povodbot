@@ -55,9 +55,15 @@ def owner_errors() -> Iterator[None]:
         raise OwnerApiError(422, {"message": REJECTED}) from error
 
 
-async def audit(session: AsyncSession, actor: AdminActor, action: str, event_id: UUID) -> None:
+async def audit(
+    session: AsyncSession,
+    actor: AdminActor,
+    action: str,
+    event_id: UUID,
+    metadata: dict[str, object] | None = None,
+) -> None:
     await AuditService(AdminRepository(session)).record(
-        actor.id, f"owner.event.{action}", "event", event_id
+        actor.id, f"owner.event.{action}", "event", event_id, metadata
     )
 
 

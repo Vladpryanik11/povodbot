@@ -10,6 +10,11 @@
 - Контракт данных для этапа Б: `webapp/src/api/AppApi.ts` и `webapp/src/api/types.ts`.
 - **Визуал v2 готов (2026-10-11):** план `plans/2026-10-11-povod-miniapp-visual-v2.md`, задачи 1–14 — чёрная тема и шрифты Wix Madefor, ореол цвета афиши, меню Дом · Избранное · Кабинет, пилюля «Сегодня», своя нижняя панель вместо MainButton, экран события v2, бумажный билет с перфорацией и веером, Кабинет, голос на «ты» (тест `src/copy.test.ts` ловит «вы»), reduced motion и `.no-blur`. 175 тестов зелёные, `tsc` чистый, сборка ~106 kB gzip. Финальное ревью — самопроверка исполнителя (сабагент-ревьюер владелец отклонил); два важных замечания исправлены (избранное затиралось при раннем тапе; офлайн-«Избранное» показывало «пусто»). Решения исполнителя — строки `Ruling:` в журнале `.superpowers/sdd/2026-10-11-povod-miniapp-visual-v2/progress.md` (git-ignored) и в итоговом сообщении сессии.
 
+**Режим владельца — бэкенд готов (2026-10-11)** — ветка `owner-events-backend`, не слита и не запушена. Спека `specs/2026-10-11-povod-owner-events-design.md`, план `plans/2026-10-11-povod-owner-events-backend.md`.
+
+- Вход по `initData` (`Authorization: tma …`), права `MANAGE_EVENTS`. Эндпоинты `/api/owner`: `GET /me`, `GET /directions`, `GET /events?filter=all|draft|past`, `GET /events/{id}`, `POST /events`, `PATCH /events/{id}` (с проверкой версии `updatedAt`), `POST /events/{id}/publish`, `POST /events/{id}/unpublish`, `POST /events/{id}/poster` (multipart `file`, `focus_x`, `focus_y`), `PATCH /events/{id}/poster-focus`. Каждое изменение пишется в аудит (`owner.event.*`).
+- Афиша: JPEG/PNG/WebP/HEIC → три WebP (`-480`, `-1080`, `-master`) в `MEDIA_ROOT/posters/`, EXIF вычищен. В `docker-compose.yml` том `media` → `/app/media` у сервиса `api`.
+
 ## Открытые вопросы владельцу
 
 - Ветка: слить в `main`, открыть PR или пока держать (`superpowers:finishing-a-development-branch`).
@@ -18,13 +23,22 @@
 
 1. Посмотреть визуал v2 в браузере (`cd webapp && npm run dev`) и решить судьбу ветки.
 2. Этап Б: настоящий API в бэкенде по контракту `AppApi`, авторизация по `initData`, оплата T-Bank. Начинать с `superpowers:brainstorming`.
-3. Отложенные минорные замечания (ниже) — одной волной.
+3. Режим владельца, план 2: экраны владельца в `webapp/` на mock-данных по контракту `/api/owner` (с `superpowers:brainstorming`/`writing-plans`).
+4. Отложенные минорные замечания (ниже) — одной волной.
 
 ## Отложено на этап бэкенда (визуал v2)
 
 - Миграции: `events.accent_color` (nullable `#RRGGBB`), `users.show_in_attendees` (bool, default false) + `PATCH /me`.
 - `attendees: {count, avatars ≤ 3}` в `GET /events` и `GET /events/{id}` — аватары только согласившихся.
 - Возраст события (сейчас константа «18+») и время входа на билете (сейчас время начала).
+
+## Отложено (режим владельца, бэкенд)
+
+- Caddy (этап B): отдавать `/media/*` из тома с `Cache-Control: public, max-age=31536000, immutable` (имена файлов — хэш содержимого). Там же лимит тела запроса около 16 МБ на загрузку афиши: multipart разбирается до проверки размера.
+- Замок загрузки афиши живёт в процессе: при нескольких воркерах uvicorn ограничение «одна загрузка на админа» мягкое.
+- Осиротевшие файлы афиш (заменённые, оставшиеся после отказа) никто не чистит.
+- Dockerfile копирует только `pyproject.toml` и `src/` — без `scripts/`, `migrations/`, `alembic.ini`, поэтому в образе пока не запустить ни `python -m scripts.link_admin_telegram`, ни миграции.
+- Тест прав на файлы афиш (POSIX) на Linux ещё ни разу не гонялся — на Windows он пропускается.
 
 ## Отложенные минорные замечания (финальное ревью)
 
