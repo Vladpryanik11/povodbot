@@ -99,7 +99,8 @@ class SegmentService:
 
     async def count(self, definition: dict[str, Any]) -> int:
         statement = self._eligible_statement(definition).with_only_columns(User.id)
-        return await self.session.scalar(select(func.count()).select_from(statement.subquery()))
+        total = await self.session.scalar(select(func.count()).select_from(statement.subquery()))
+        return total or 0
 
     async def is_eligible(self, user_id: UUID, definition: dict[str, Any] | None = None) -> bool:
         statement = self._eligible_statement(definition or {}).where(User.id == user_id)

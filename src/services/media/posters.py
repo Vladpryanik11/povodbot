@@ -40,15 +40,22 @@ def poster_url(key: str) -> str:
 
 
 def store_poster(data: bytes, media_root: Path) -> StoredPoster:
+    return store_image(data, media_root, "posters", MIN_SIZE)
+
+
+def store_image(
+    data: bytes, media_root: Path, folder: str, min_size: tuple[int, int]
+) -> StoredPoster:
+    """WebP master and 480/1080 variants under MEDIA_ROOT/<folder>/, named by content hash."""
     if len(data) > MAX_BYTES:
         raise PosterError(413, "Фото больше 15 МБ")
     if not _has_image_signature(data):
         raise PosterError(415, NOT_A_PHOTO)
-    master = _decode(data)
+    master = _decode(data, min_size)
     master_bytes = _encode_webp(master)
     name = hashlib.sha256(master_bytes).hexdigest()
     sizes = {width: _fit_width(master.size, width) for width in VARIANT_WIDTHS}
-    directory = media_root / "posters"
+    directory = media_root / folder
     master_path = directory / f"{name}-master.webp"
     if not master_path.exists():
         directory.mkdir(parents=True, exist_ok=True)
@@ -59,7 +66,7 @@ def store_poster(data: bytes, media_root: Path) -> StoredPoster:
             _write_atomic(directory / f"{name}-{width}.webp", _encode_webp(variant))
         _write_atomic(master_path, master_bytes)
     width, height = sizes[1080]
-    return StoredPoster(key=f"posters/{name}", width=width, height=height)
+    return StoredPoster(key=f"{folder}/{name}", width=width, height=height)
 
 
 def _has_image_signature(data: bytes) -> bool:
@@ -71,7 +78,7 @@ def _has_image_signature(data: bytes) -> bool:
     )
 
 
-def _decode(data: bytes) -> Image.Image:
+def _decode(data: bytes, min_size: tuple[int, int]) -> Image.Image:
     try:
         with Image.open(BytesIO(data)) as source:
             if source.width * source.height > MAX_PIXELS:
@@ -84,8 +91,8 @@ def _decode(data: bytes) -> Image.Image:
         raise PosterError(422, "Фото слишком большое по пикселям") from exc
     except Exception as exc:
         raise PosterError(415, NOT_A_PHOTO) from exc
-    if image.width < MIN_SIZE[0] or image.height < MIN_SIZE[1]:
-        raise PosterError(422, "Фото маловато — нужно хотя бы 800×1000")
+    if image.width < min_size[0] or image.height < min_size[1]:
+        raise PosterError(422, f"Фото маловато — нужно хотя бы {min_size[0]}×{min_size[1]}")
     image.thumbnail(MASTER_BOX, Image.Resampling.LANCZOS)
     return image
 

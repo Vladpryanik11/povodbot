@@ -22,11 +22,21 @@ async def get_owner_actor(
     return AdminActor.from_model(admin)
 
 
-async def require_owner_events(
-    actor: Annotated[AdminActor, Depends(get_owner_actor)],
-) -> AdminActor:
+def _require(actor: AdminActor, permission: Permission) -> AdminActor:
     try:
-        PermissionService.require(actor, Permission.MANAGE_EVENTS)
+        PermissionService.require(actor, permission)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Insufficient admin permissions") from exc
     return actor
+
+
+async def require_owner_events(
+    actor: Annotated[AdminActor, Depends(get_owner_actor)],
+) -> AdminActor:
+    return _require(actor, Permission.MANAGE_EVENTS)
+
+
+async def require_owner_campaigns(
+    actor: Annotated[AdminActor, Depends(get_owner_actor)],
+) -> AdminActor:
+    return _require(actor, Permission.MANAGE_CAMPAIGNS)

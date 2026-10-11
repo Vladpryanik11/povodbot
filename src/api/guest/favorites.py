@@ -22,9 +22,7 @@ router = APIRouter(prefix="/api/app/favorites", tags=["app"], route_class=OwnerR
 Session = Annotated[AsyncSession, Depends(get_async_session)]
 
 
-async def guest(
-    session: Session, authorization: Annotated[str | None, Header()] = None
-) -> User:
+async def guest(session: Session, authorization: Annotated[str | None, Header()] = None) -> User:
     return await get_guest_user(session, authorization)
 
 

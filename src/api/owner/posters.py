@@ -23,6 +23,11 @@ UPLOAD_BUSY = "Фото ещё загружается — подожди"
 _upload_locks: dict[UUID, asyncio.Lock] = {}
 
 
+def upload_lock(admin_id: UUID) -> asyncio.Lock:
+    """The admin's single upload slot, shared by posters and broadcast pictures."""
+    return _upload_locks.setdefault(admin_id, asyncio.Lock())
+
+
 class PosterFocusPatch(OwnerIn):
     focus_x: StrictFloat | StrictInt
     focus_y: StrictFloat | StrictInt
@@ -38,7 +43,7 @@ async def upload_poster(
     events: Service,
     session: Session,
 ) -> OwnerEventOut:
-    lock = _upload_locks.setdefault(actor.id, asyncio.Lock())
+    lock = upload_lock(actor.id)
     if lock.locked():
         raise OwnerApiError(429, {"message": UPLOAD_BUSY})
     async with lock:

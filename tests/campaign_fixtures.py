@@ -11,7 +11,7 @@ from src.models.commerce import Order, OrderItem, OrderStatus
 from src.models.events import TicketType
 from src.models.favorites import Favorite
 from src.models.identity import Consent, ConsentStatus, ConsentType, User
-from src.models.tickets import TicketStatus, Ticket
+from src.models.tickets import Ticket, TicketStatus
 from src.repositories.users import UserRepository
 from tests.unit.services.test_events import draft, service
 
@@ -75,7 +75,9 @@ async def guest(
     blocked: bool = False,
     revoked: bool = False,
 ) -> User:
-    user = await UserRepository(session).upsert(telegram_id, f"Гость {telegram_id}", None, None, None)
+    user = await UserRepository(session).upsert(
+        telegram_id, f"Гость {telegram_id}", None, None, None
+    )
     user.is_blocked = blocked
     for event_id in liked:
         session.add(Favorite(user_id=user.id, event_id=event_id))
