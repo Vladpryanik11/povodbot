@@ -154,7 +154,7 @@ class CampaignOutboxWorker(_OutboxWorker):
             campaign.finished_at = now
 
     async def _postpone(self, job: ClaimedOutbox, seconds: float) -> None:
-        """Telegram asked to wait: the try does not count against the guest."""
+        """Telegram asked the bot to wait: the try does not count, and no broadcast goes out."""
         async with self.session_factory() as session, session.begin():
             event = await session.scalar(
                 select(Outbox).where(Outbox.id == job.id).with_for_update()
@@ -162,7 +162,17 @@ class CampaignOutboxWorker(_OutboxWorker):
             if event is None or event.processed_at is not None:
                 return
             event.attempts = max(event.attempts - 1, 0)
-            event.available_at = datetime.now(UTC) + timedelta(seconds=seconds)
+            until = datetime.now(UTC) + timedelta(seconds=seconds)
+            event.available_at = until
+            await session.execute(
+                update(Outbox)
+                .where(
+                    Outbox.event_type == job.event_type,
+                    Outbox.processed_at.is_(None),
+                    Outbox.available_at < until,
+                )
+                .values(available_at=until)
+            )
 
     async def _finish(
         self,
@@ -251,8 +261,10 @@ class CampaignOutboxWorker(_OutboxWorker):
                 await self.throttle.wait()
                 sent = await self.sender.send(telegram_id, prepared)
             except RetryAfter as wait:
+                # The pause holds for the whole bot; this loop also releases seats
+                # and refunds, so the queue waits in the database, not here.
                 await self._postpone(job, wait.seconds)
-                await self.sleep(wait.seconds)
+                break
             except RecipientBlocked:
                 await self._finish(job, blocked=BOT_BLOCKED)
             except Exception as exc:  # provider failures are persisted and retried

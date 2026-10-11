@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -60,6 +60,37 @@ async def test_campaign_draft_schedule_requires_future_aware_utc(db_session):
     )
     assert campaign.scheduled_at == future.astimezone(UTC)
     assert campaign.status == CampaignStatus.DRAFT
+
+
+def tomorrow_msk(hour: int, minute: int = 0) -> datetime:
+    msk = timezone(timedelta(hours=3))
+    day = datetime.now(msk).date() + timedelta(days=1)
+    return datetime.combine(day, time(hour, minute), tzinfo=msk)
+
+
+async def legacy_draft(db_session, body: str):
+    admin = await AdminAuthService(AdminRepository(db_session)).create_user(
+        "legacy-admin", "password-123"
+    )
+    service = CampaignService(db_session)
+    return service, await service.create_draft(admin.id, "Legacy", body, {})
+
+
+async def test_legacy_schedule_refuses_quiet_hours(db_session):
+    service, campaign = await legacy_draft(db_session, "Hello")
+
+    with pytest.raises(ValueError, match="quiet hours"):
+        await service.schedule(campaign.id, tomorrow_msk(23, 30))
+
+    scheduled = await service.schedule(campaign.id, tomorrow_msk(12))
+    assert scheduled.status == CampaignStatus.SCHEDULED
+
+
+async def test_legacy_schedule_refuses_text_telegram_cannot_parse_as_html(db_session):
+    service, campaign = await legacy_draft(db_session, "Entry 2 < 3 & drinks")
+
+    with pytest.raises(ValueError):
+        await service.schedule(campaign.id, tomorrow_msk(12))
 
 
 async def test_campaign_preview_and_delivery_require_current_marketing_consent(pg_factory):

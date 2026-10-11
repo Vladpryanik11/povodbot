@@ -122,23 +122,29 @@ async def test_success_records_sent(pg_factory):
     assert campaign.finished_at is not None
 
 
-async def test_retry_after_waits_and_does_not_burn_attempt(pg_factory):
+async def test_retry_after_pauses_the_queue_without_blocking_the_loop(pg_factory):
     campaign_id = await launched(pg_factory)
     sender = Sender(errors={2: [RetryAfter(3)]})
     sleeps = Sleeps()
 
-    assert await worker(pg_factory, sender, sleeps).process_pending() == 4
+    first = await worker(pg_factory, sender, sleeps).process_pending()
 
-    assert sleeps.calls == [3]
+    # The same loop releases seats and refunds, so it must not wait inline.
+    assert sleeps.calls == []
     rows = await deliveries(pg_factory, campaign_id)
     assert rows[2].status == DeliveryStatus.QUEUED
     assert rows[2].attempts == 0
     assert (await outbox_for(pg_factory, campaign_id, 2)).attempts == 0
+    queued = [row for row in rows.values() if row.status == DeliveryStatus.QUEUED]
+    assert len(queued) == 5 - first
+    # Telegram's pause holds for every guest, not only the one who got the 429.
+    assert await worker(pg_factory, sender).process_pending() == 0
     assert (await campaign_row(pg_factory, campaign_id)).status == CampaignStatus.RUNNING
 
     await make_due(pg_factory)
-    assert await worker(pg_factory, sender).process_pending() == 1
-    assert (await deliveries(pg_factory, campaign_id))[2].status == DeliveryStatus.SENT
+    assert await worker(pg_factory, sender).process_pending() == 5 - first
+    rows = await deliveries(pg_factory, campaign_id)
+    assert {row.status for row in rows.values()} == {DeliveryStatus.SENT}
     assert (await campaign_row(pg_factory, campaign_id)).status == CampaignStatus.COMPLETED
 
 

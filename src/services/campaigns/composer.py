@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.campaigns import Campaign, CampaignStatus
+from src.services.campaigns.content import validate_body
+from src.services.campaigns.launch import is_quiet
 from src.services.crm.segments import SegmentService
 
 
@@ -100,6 +102,10 @@ class CampaignService:
             raise LookupError("Campaign not found")
         if CampaignStatus(campaign.status) != CampaignStatus.DRAFT:
             raise ValueError("Only draft campaigns can be scheduled")
+        if is_quiet(normalized_scheduled_at):
+            raise ValueError("Campaigns are not sent in quiet hours, 22:00-10:00 MSK")
+        # Sending is HTML now: a bare < or & would fail at Telegram on every try.
+        validate_body(campaign.body, has_image=campaign.image.get("kind") != "none")
         campaign.scheduled_at = normalized_scheduled_at
         campaign.status = CampaignStatus.SCHEDULED
         await self.session.flush()
