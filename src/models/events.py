@@ -2,7 +2,17 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base, Timestamps, UUIDPrimaryKey
@@ -23,6 +33,9 @@ class Event(UUIDPrimaryKey, Timestamps, Base):
         CheckConstraint("length(trim(address)) > 0", name="address_nonempty"),
         CheckConstraint("capacity > 0", name="capacity_positive"),
         CheckConstraint("ends_at > starts_at", name="date_order"),
+        CheckConstraint("cover_focus_x BETWEEN 0 AND 1", name="cover_focus_x_range"),
+        CheckConstraint("cover_focus_y BETWEEN 0 AND 1", name="cover_focus_y_range"),
+        CheckConstraint("accent_color ~ '^#[0-9A-Fa-f]{6}$'", name="accent_color_hex"),
         CheckConstraint("length(trim(timezone)) > 0", name="timezone_nonempty"),
         CheckConstraint(
             "status IN ('draft', 'published', 'cancelled', 'completed')", name="status"
@@ -41,8 +54,17 @@ class Event(UUIDPrimaryKey, Timestamps, Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     timezone: Mapped[str] = mapped_column(String(128))
-    address: Mapped[str] = mapped_column(String(1024))
+    address: Mapped[str | None] = mapped_column(String(1024))
     map_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_focus_x: Mapped[float] = mapped_column(
+        Numeric(4, 3, asdecimal=False), default=0.5, server_default=text("0.5")
+    )
+    cover_focus_y: Mapped[float] = mapped_column(
+        Numeric(4, 3, asdecimal=False), default=0.5, server_default=text("0.5")
+    )
+    cover_width: Mapped[int | None]
+    cover_height: Mapped[int | None]
+    accent_color: Mapped[str | None] = mapped_column(String(7))
     capacity: Mapped[int]
     status: Mapped[str] = mapped_column(String(16), default=EventStatus.DRAFT)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

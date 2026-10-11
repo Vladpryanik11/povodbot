@@ -2,7 +2,16 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +33,7 @@ class AdminUser(UUIDPrimaryKey, Timestamps, Base):
     login: Mapped[str] = mapped_column(String(128), unique=True)
     password_hash: Mapped[str] = mapped_column(String(512))
     role: Mapped[str] = mapped_column(String(32), default=AdminRole.ADMINISTRATOR)
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sessions: Mapped[list["AdminSession"]] = relationship(

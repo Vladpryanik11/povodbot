@@ -18,6 +18,12 @@ class AdminRepository:
         )
         return value
 
+    async def user_by_telegram_id(self, telegram_id: int) -> AdminUser | None:
+        result = await self.session.execute(
+            select(AdminUser).where(AdminUser.telegram_id == telegram_id)
+        )
+        return result.scalar_one_or_none()
+
     async def user_by_id(self, admin_id: UUID) -> AdminUser | None:
         result = await self.session.execute(select(AdminUser).where(AdminUser.id == admin_id))
         return result.scalar_one_or_none()
