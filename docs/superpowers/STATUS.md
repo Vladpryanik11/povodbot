@@ -13,7 +13,25 @@
 **Режим владельца — бэкенд готов (2026-10-11)** — ветка `owner-events-backend`, не слита и не запушена. Спека `specs/2026-10-11-povod-owner-events-design.md`, план `plans/2026-10-11-povod-owner-events-backend.md`.
 
 - Вход по `initData` (`Authorization: tma …`), права `MANAGE_EVENTS`. Эндпоинты `/api/owner`: `GET /me`, `GET /directions`, `GET /events?filter=all|draft|past`, `GET /events/{id}`, `POST /events`, `PATCH /events/{id}` (с проверкой версии `updatedAt`), `POST /events/{id}/publish`, `POST /events/{id}/unpublish`, `POST /events/{id}/poster` (multipart `file`, `focus_x`, `focus_y`), `PATCH /events/{id}/poster-focus`. Каждое изменение пишется в аудит (`owner.event.*`).
-- Афиша: JPEG/PNG/WebP/HEIC → три WebP (`-480`, `-1080`, `-master`) в `MEDIA_ROOT/posters/`, EXIF вычищен. В `docker-compose.yml` том `media` → `/app/media` у сервиса `api`.
+- Афиша: JPEG/PNG/WebP/HEIC → три WebP (`-480`, `-1080`, `-master`) в `MEDIA_ROOT/posters/`, EXIF вычищен, цвета приведены к sRGB, прозрачность ложится на белое. В `docker-compose.yml` том `media` → `/app/media` у сервиса `api`.
+
+**Контракт для экранов (план 2):**
+
+- три формы ошибок: `{message[, field]}` (OwnerApiError), `{detail: str}` (401/403/503), `{detail: [...]}` (валидация FastAPI) — OwnerApi в webapp обрабатывает все три;
+- `updatedAt` — непрозрачная строка; загрузка постера и смена фокуса тоже меняют `updatedAt` — форма берёт свежий токен из их ответа, иначе следующее «Сохранить» даст 409;
+- загрузка постера — multipart с `file`, `focus_x`, `focus_y` (snake_case), остальное JSON camelCase;
+- «Новый вечер»: сначала сохранить черновик, потом загружать фото (эндпоинт постера требует существующее событие);
+- у старых постеров-URL `width/height` = 0 — UI не делит на них;
+- публичный `/api/public/events` пока отдаёт сырой `cover_ref` (ключ) — на этапе B вынести `poster_out` из `src/api/owner/` и отдавать `Poster`;
+- CORS нет — Mini App и API на одном домене через Caddy.
+
+**Перед деплоем (этап B):**
+
+- лимит тела запроса в Caddy (~16 МБ) — FastAPI читает multipart до авторизации; в OwnerRoute есть ранний 413 по Content-Length, но без заголовка (chunked) тело всё равно читается;
+- поднять Pillow (11.3.0 → актуальная 12.x) — декодер недоверенных файлов;
+- память на фото 40 Мп ≈ 300–400 МБ пик — сверить с размером VPS;
+- создание первого админа (owner) — скрипта нет, есть только привязка Telegram;
+- unpublish запрещён при любом заказе, даже брошенном неоплаченном — пересмотреть в цикле «продажи/возвраты».
 
 ## Открытые вопросы владельцу
 
@@ -34,7 +52,7 @@
 
 ## Отложено (режим владельца, бэкенд)
 
-- Caddy (этап B): отдавать `/media/*` из тома с `Cache-Control: public, max-age=31536000, immutable` (имена файлов — хэш содержимого). Там же лимит тела запроса около 16 МБ на загрузку афиши: multipart разбирается до проверки размера.
+- Caddy (этап B): отдавать `/media/*` из тома с `Cache-Control: public, max-age=31536000, immutable` (имена файлов — хэш содержимого).
 - Замок загрузки афиши живёт в процессе: при нескольких воркерах uvicorn ограничение «одна загрузка на админа» мягкое.
 - Осиротевшие файлы афиш (заменённые, оставшиеся после отказа) никто не чистит.
 - Dockerfile копирует только `pyproject.toml` и `src/` — без `scripts/`, `migrations/`, `alembic.ini`, поэтому в образе пока не запустить ни `python -m scripts.link_admin_telegram`, ни миграции.

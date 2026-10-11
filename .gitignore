@@ -16,6 +16,9 @@ htmlcov/
 *.db
 *.log
 
+# Uploaded posters (MEDIA_ROOT), at the repository root only
+/media/
+
 # Mini App
 webapp/node_modules/
 webapp/dist/
