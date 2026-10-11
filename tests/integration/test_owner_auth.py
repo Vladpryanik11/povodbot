@@ -34,7 +34,10 @@ async def test_missing_or_bad_signature_401(pg_factory, owner_env):
         assert (await client.get("/api/owner/me", headers=foreign)).status_code == 401
 
 
-@pytest.mark.parametrize("header", ["", "tma", "tma ", "tma garbage", "Bearer abc", "abc"])
+@pytest.mark.parametrize(
+    "header",
+    ["", "tma", "tma ", "tma garbage", "Bearer abc", "abc", "tma auth_date=1&hash=%C3%A9"],
+)
 async def test_malformed_authorization_401(pg_factory, owner_env, header):
     await make_admin(pg_factory, role="owner")
     async with client_for(pg_factory) as client:

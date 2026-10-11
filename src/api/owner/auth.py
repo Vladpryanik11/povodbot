@@ -38,7 +38,7 @@ async def get_owner_actor(
         raise _unauthorized()
     try:
         parsed = safe_parse_webapp_init_data(token, init_data)
-    except ValueError:  # bad signature, malformed query string or payload
+    except (ValueError, TypeError):  # bad signature, malformed payload, non-ASCII hash
         raise _unauthorized() from None
     if parsed.user is None or datetime.now(UTC) - parsed.auth_date > MAX_AUTH_AGE:
         raise _unauthorized()
