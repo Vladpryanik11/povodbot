@@ -3,8 +3,11 @@ from src.models.base import Base
 from src.models.campaigns import (
     Attribution,
     Campaign,
+    CampaignClick,
     CampaignDelivery,
+    CampaignLink,
     CampaignStatus,
+    CampaignTemplate,
     DeliveryStatus,
     FunnelEvent,
 )
@@ -20,6 +23,7 @@ from src.models.commerce import (
 )
 from src.models.directions import Direction
 from src.models.events import Event, TicketType
+from src.models.favorites import Favorite
 from src.models.identity import Consent, User
 from src.models.outbox import Outbox
 from src.models.payments import Payment, PaymentEvent, PaymentStatus
@@ -33,12 +37,16 @@ __all__ = [
     "Attribution",
     "Base",
     "Campaign",
+    "CampaignClick",
     "CampaignDelivery",
+    "CampaignLink",
     "CampaignStatus",
+    "CampaignTemplate",
     "Consent",
     "DeliveryStatus",
     "Direction",
     "Event",
+    "Favorite",
     "FunnelEvent",
     "Order",
     "OrderEvent",
