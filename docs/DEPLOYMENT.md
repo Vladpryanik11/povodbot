@@ -18,8 +18,9 @@
 
 ## Что нужно заранее
 
-- VPS с Ubuntu 22.04/24.04, 2 ГБ памяти (загрузка афиши 40 Мп даёт пик 300–400 МБ),
-  доступ по SSH.
+- VPS с Ubuntu 22.04/24.04, доступ по SSH. Рекомендуется 2 ГБ памяти (загрузка афиши 40 Мп даёт
+  пик 300–400 МБ). Минимум — 1 ГБ памяти, 10 ГБ диска и 1 ядро: работает, но только со swap (шаг 1)
+  и без фото в десятки мегапикселей.
 - Домен с A-записью на IP сервера (иначе Caddy не получит сертификат).
 - Токен бота от @BotFather. Если токен когда-либо попадал в чат или лог — перевыпустить
   (`/revoke`).
@@ -29,6 +30,8 @@
 1. Docker на сервере: `curl -fsSL https://get.docker.com | sh`. Файрвол: открыть 22, 80, 443
    (`ufw allow 22,80,443/tcp && ufw allow 443/udp && ufw enable`). БД и Redis наружу не
    публикуются.
+   Swap (обязателен при 1 ГБ памяти, при 2 ГБ не мешает): `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab`.
+   Если `swapon` отказывает (контейнерная виртуализация), 1 ГБ слишком мало — брать тариф с 2 ГБ.
 2. Код: `git clone https://github.com/Vladpryanik11/povodbot.git /opt/povod`. Для приватного
    репозитория — deploy key (read-only) в настройках репозитория.
 3. Секреты: `cd /opt/povod && cp deploy/server.env.example .env && chmod 600 .env`, затем
@@ -54,6 +57,8 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 Миграции применяются автоматически; `up -d` пересоздаёт только изменившиеся сервисы.
+На диске в 10 ГБ после каждого обновления чистить старые образы и кэш сборки:
+`docker image prune -f && docker builder prune -f`. Свободное место — `df -h /`.
 Бот работает через polling: **держать ровно один экземпляр `bot`**, иначе Telegram вернёт
 конфликт. `TICKET_QR_SECRET` после выдачи билетов не менять — старые QR перестанут
 читаться.
