@@ -52,8 +52,7 @@ def main() -> None:
     # The password never goes through argv, so it stays out of shell history and `ps`:
     # typed at a hidden prompt, or piped in with --password-stdin for scripted setups.
     if args.password_stdin:
-        password = sys.stdin.readline().rstrip("
-")
+        password = sys.stdin.readline().rstrip("\r\n")
     else:
         password = getpass.getpass("Password: ")
         if password != getpass.getpass("Repeat password: "):
