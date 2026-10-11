@@ -9,9 +9,11 @@ interface DialogProps {
   cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** The confirmed action is running: confirm shows progress and does not repeat it. */
+  busy?: boolean;
 }
 
-export function Dialog({ title, text, confirmLabel, cancelLabel, onConfirm, onCancel }: DialogProps) {
+export function Dialog({ title, text, confirmLabel, cancelLabel, onConfirm, onCancel, busy = false }: DialogProps) {
   const titleId = useId();
   const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -32,7 +34,7 @@ export function Dialog({ title, text, confirmLabel, cancelLabel, onConfirm, onCa
         </h2>
         <p className={styles.text}>{text}</p>
         <div className={styles.actions} ref={confirmRef}>
-          <Button wide onClick={onConfirm}>
+          <Button wide loading={busy} disabled={busy} onClick={onConfirm}>
             {confirmLabel}
           </Button>
           <Button wide variant="secondary" onClick={onCancel}>
