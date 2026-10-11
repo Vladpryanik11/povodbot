@@ -62,6 +62,7 @@
 
 - `admin_users.telegram_id` — `bigint`, unique, nullable.
 - `events.cover_focus_x`, `events.cover_focus_y` — `numeric`, 0–1, default 0.5, check-ограничение диапазона.
+- `events.cover_width`, `events.cover_height` — `int`, nullable: размеры варианта 1080 для `Poster.width/height`.
 - `events.accent_color` — `varchar(7)`, nullable, check `^#[0-9A-Fa-f]{6}$`.
 - `events.address` — nullable (null = «Место уточняется»).
 - `events.cover_ref` хранит ключ `posters/<sha256>`, не URL. Существующие значения-URL отдаются как есть.
