@@ -41,7 +41,7 @@
 
 1. Посмотреть визуал v2 в браузере (`cd webapp && npm run dev`) и решить судьбу ветки.
 2. Этап Б: настоящий API в бэкенде по контракту `AppApi`, авторизация по `initData`, оплата T-Bank. Начинать с `superpowers:brainstorming`.
-3. Режим владельца, план 2: экраны владельца в `webapp/` на mock-данных по контракту `/api/owner` (с `superpowers:brainstorming`/`writing-plans`).
+3. Режим владельца, план 2 — `plans/2026-10-11-povod-owner-events-screens.md`, ветка `owner-events-screens` (от `owner-events-backend`, не запушена). Экраны владельца: задачи 1–5 готовы, дальше задача 6. Леджер с решениями — `.superpowers/sdd/2026-10-11-povod-owner-events-screens/progress.md`.
 4. Отложенные минорные замечания (ниже) — одной волной.
 
 ## Отложено на этап бэкенда (визуал v2)
