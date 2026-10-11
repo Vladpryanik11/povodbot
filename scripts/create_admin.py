@@ -45,11 +45,19 @@ def main() -> None:
     parser.add_argument("--login", required=True)
     parser.add_argument("--role", choices=[role.value for role in AdminRole], required=True)
     parser.add_argument("--telegram-id", type=int)
+    parser.add_argument(
+        "--password-stdin", action="store_true", help="read the password from the first stdin line"
+    )
     args = parser.parse_args()
-    # The password is typed at a hidden prompt so it never lands in shell history or `ps`.
-    password = getpass.getpass("Password: ")
-    if password != getpass.getpass("Repeat password: "):
-        sys.exit("Passwords do not match")
+    # The password never goes through argv, so it stays out of shell history and `ps`:
+    # typed at a hidden prompt, or piped in with --password-stdin for scripted setups.
+    if args.password_stdin:
+        password = sys.stdin.readline().rstrip("
+")
+    else:
+        password = getpass.getpass("Password: ")
+        if password != getpass.getpass("Repeat password: "):
+            sys.exit("Passwords do not match")
     try:
         asyncio.run(run(args.login, password, AdminRole(args.role), args.telegram_id))
     except ValueError as error:
