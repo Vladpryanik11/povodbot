@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pillow_heif
-from PIL import Image, ImageOps
+from PIL import Image, ImageCms, ImageOps
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_PIXELS = 40_000_000
@@ -76,17 +76,43 @@ def _decode(data: bytes) -> Image.Image:
         with Image.open(BytesIO(data)) as source:
             if source.width * source.height > MAX_PIXELS:
                 raise PosterError(422, "Фото слишком большое по пикселям")
-            image = ImageOps.exif_transpose(source).convert("RGB")
+            icc_profile = source.info.get("icc_profile")
+            image = _to_srgb(ImageOps.exif_transpose(source), icc_profile)
     except PosterError:
         raise
-    except Image.DecompressionBombError:
-        raise PosterError(422, "Фото слишком большое по пикселям") from None
-    except Exception:
-        raise PosterError(415, NOT_A_PHOTO) from None
+    except Image.DecompressionBombError as exc:
+        raise PosterError(422, "Фото слишком большое по пикселям") from exc
+    except Exception as exc:
+        raise PosterError(415, NOT_A_PHOTO) from exc
     if image.width < MIN_SIZE[0] or image.height < MIN_SIZE[1]:
         raise PosterError(422, "Фото маловато — нужно хотя бы 800×1000")
     image.thumbnail(MASTER_BOX, Image.Resampling.LANCZOS)
     return image
+
+
+def _to_srgb(image: Image.Image, icc_profile: bytes | None) -> Image.Image:
+    """An RGB copy in sRGB: transparency goes onto white, a non-sRGB profile is applied.
+
+    A photo without a profile, or with one that cannot be read, is taken as sRGB already.
+    """
+    if image.has_transparency_data:
+        rgba = image.convert("RGBA")
+        image = Image.new("RGB", rgba.size, (255, 255, 255))
+        image.paste(rgba, mask=rgba)
+    if icc_profile:
+        try:
+            profile = ImageCms.ImageCmsProfile(BytesIO(icc_profile))
+            if "srgb" not in ImageCms.getProfileDescription(profile).lower():
+                if image.mode not in ("RGB", "L", "CMYK"):
+                    image = image.convert("RGB")
+                converted = ImageCms.profileToProfile(
+                    image, profile, ImageCms.createProfile("sRGB"), outputMode="RGB"
+                )
+                if converted is not None:  # None only for in-place conversion
+                    return converted
+        except (OSError, ImageCms.PyCMSError):
+            pass
+    return image.convert("RGB")
 
 
 def _encode_webp(image: Image.Image) -> bytes:
