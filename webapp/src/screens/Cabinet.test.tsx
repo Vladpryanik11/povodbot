@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MockApi } from '../api/mock/MockApi';
+import { MockOwnerApi } from '../api/owner/MockOwnerApi';
 import { ticketCache } from '../lib/ticketCache';
 import { createTg, type TelegramWebApp } from '../telegram/tg';
 import { renderScreen, T0 } from '../test/render';
@@ -88,5 +89,25 @@ describe('Cabinet', () => {
     renderScreen(<Cabinet />, { at: '/me', api: new MockApi({ latencyMs: 60_000, now: () => T0 }) });
     const fan = await screen.findByRole('region', { name: 'Билеты' });
     expect(within(fan).getByText('Номер 4821')).toBeInTheDocument();
+  });
+});
+
+describe('Cabinet owner mode', () => {
+  it('shows owner mode to an owner and opens it', async () => {
+    renderScreen(<Cabinet />, { at: '/me' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Режим владельца' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/owner');
+  });
+
+  it.each(['guest', 'entrance'] as const)('hides owner mode from %s', async (role) => {
+    renderScreen(<Cabinet />, { at: '/me', ownerApi: new MockOwnerApi({ role, latencyMs: 0 }) });
+    await screen.findByRole('heading', { name: 'Поддержка' });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Режим владельца' })).not.toBeInTheDocument());
+  });
+
+  it('hides owner mode when the check fails', async () => {
+    renderScreen(<Cabinet />, { at: '/me', ownerApi: new MockOwnerApi({ offline: true, latencyMs: 0 }) });
+    await screen.findByRole('heading', { name: 'Поддержка' });
+    expect(screen.queryByRole('button', { name: 'Режим владельца' })).not.toBeInTheDocument();
   });
 });

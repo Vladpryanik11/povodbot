@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, RotateCcw } from 'lucide-react';
+import { CalendarCog, MessageCircle, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../api/ApiProvider';
 import type { Ticket } from '../api/types';
 import { formatDate, plural } from '../lib/format';
+import { useOwnerAccess } from '../owner/useOwnerAccess';
 import { useTg } from '../telegram/hooks';
 import { STATUS_LABEL, useTickets } from '../tickets/useTickets';
 import { Dialog } from '../ui/Dialog';
@@ -28,6 +29,7 @@ export function Cabinet() {
   const queryClient = useQueryClient();
   const { tickets, isPending } = useTickets();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me() });
+  const isOwner = useOwnerAccess();
   const privacy = useMutation({
     mutationFn: (value: boolean) => api.setShowInAttendees(value),
     onSuccess: (next) => queryClient.setQueryData(['me'], next),
@@ -116,6 +118,15 @@ export function Cabinet() {
               </div>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {isOwner ? (
+        <section className={styles.section} aria-labelledby="club">
+          <h2 id="club" className={`t-h2 ${styles.heading}`}>
+            Клуб
+          </h2>
+          <ListRow icon={CalendarCog} label="Режим владельца" onClick={() => navigate('/owner')} />
         </section>
       ) : null}
 
