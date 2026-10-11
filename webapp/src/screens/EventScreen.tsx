@@ -23,7 +23,8 @@ import styles from './EventScreen.module.css';
 type Problem =
   | { kind: 'active'; orderId: string; eventTitle: string }
   | { kind: 'seats'; seatsLeft: number }
-  | { kind: 'network' };
+  | { kind: 'network' }
+  | { kind: 'closed' };
 
 /** The guest's evening screen. With `preview` it shows the owner's unsaved evening: nothing loads, nothing is bought. */
 export function EventScreen({ preview }: { preview?: EventDetail } = {}) {
@@ -66,6 +67,8 @@ export function EventScreen({ preview }: { preview?: EventDetail } = {}) {
       } else if (error instanceof ApiError && error.code === 'not_enough_seats') {
         tg.haptic.notify('warning');
         setProblem({ kind: 'seats', seatsLeft: error.data.seatsLeft ?? 0 });
+      } else if (error instanceof ApiError && error.code === 'sales_closed') {
+        setProblem({ kind: 'closed' });
       } else {
         setProblem({ kind: 'network' });
       }
@@ -218,6 +221,16 @@ export function EventScreen({ preview }: { preview?: EventDetail } = {}) {
             void pay();
           }}
           onCancel={() => setProblem(null)}
+        />
+      ) : null}
+      {problem?.kind === 'closed' ? (
+        <Dialog
+          title="Билеты — в чате бота"
+          text="Здесь покупка появится скоро. Пока купи в чате: Афиша → вечер → билет."
+          confirmLabel="Понятно"
+          cancelLabel="К афише"
+          onConfirm={() => setProblem(null)}
+          onCancel={() => navigate('/')}
         />
       ) : null}
     </main>

@@ -1,6 +1,7 @@
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../api/AppApi';
 import { buildFixtures } from '../api/mock/fixtures';
 import { MockApi } from '../api/mock/MockApi';
 import { createTg } from '../telegram/tg';
@@ -97,6 +98,18 @@ describe('EventScreen', () => {
     expect(openLink).toHaveBeenCalledWith('#/mock-pay/o-1');
     expect(closing).toHaveBeenCalledWith(true);
     expect(await tg.storage.get('activeOrderId')).toBe('o-1');
+  });
+
+  it('sends the guest to the bot while buying in the app is closed', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    vi.spyOn(api, 'createOrder').mockRejectedValue(new ApiError('sales_closed'));
+    renderScreen(<EventScreen />, { ...at('e-film'), api });
+    await screen.findByRole('heading', { name: 'Амели на большом экране' });
+    await add();
+    await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
+    expect(await screen.findByRole('dialog', { name: 'Билеты — в чате бота' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Понятно' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('offers to continue an existing reservation', async () => {

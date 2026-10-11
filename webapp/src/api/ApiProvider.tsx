@@ -1,14 +1,15 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { AppApi } from './AppApi';
+import { HttpAppApi } from './HttpAppApi';
 import { MockApi, scenarioFromUrl } from './mock/MockApi';
 
 const ApiContext = createContext<AppApi | null>(null);
 
 let defaultApi: AppApi | null = null;
 
-/** Stage A always talks to the in-memory mock; stage B swaps in the HTTP client here. */
+/** Inside Telegram (signed initData present) read the real afisha; in a plain browser use the mock. */
 function getDefaultApi(): AppApi {
-  defaultApi ??= new MockApi({ scenario: scenarioFromUrl() });
+  defaultApi ??= window.Telegram?.WebApp?.initData ? new HttpAppApi() : new MockApi({ scenario: scenarioFromUrl() });
   return defaultApi;
 }
 

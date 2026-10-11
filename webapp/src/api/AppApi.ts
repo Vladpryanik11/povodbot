@@ -7,6 +7,7 @@ export type ApiErrorCode =
   | 'payment_uncertain'
   | 'already_claimed'
   | 'not_found'
+  | 'sales_closed'
   | 'network';
 
 export class ApiError extends Error {
