@@ -17,7 +17,7 @@ export const CMSG = {
   emptyTitle: 'Напиши название рассылки',
   /** On edit. */
   eventNotPublished: 'Вечер не опубликован',
-  /** On send (spec §10); the backend still says eventNotPublished until stage 3. */
+  /** On send (spec §10). */
   eventGone: 'Вечер больше не опубликован',
   stale: 'Рассылку уже изменили в другой вкладке. Обнови страницу',
   locked: 'Эту рассылку уже не изменить',

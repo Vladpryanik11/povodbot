@@ -24,8 +24,8 @@ export class QuietHoursError extends OwnerApiError {
 }
 
 /**
- * Contract of /api/owner/campaigns* (src/api/owner/campaigns.py). Stage 2 implements it with
- * MockCampaignApi; the HTTP client comes with stage 3.
+ * Contract of /api/owner/campaigns* (src/api/owner/campaigns.py): HttpCampaignApi in Telegram,
+ * MockCampaignApi in a plain browser.
  *
  * campaigns(filter)   GET    /api/owner/campaigns?filter=draft|scheduled|sent
  * audienceCount(f)    POST   /api/owner/campaigns/audience-count       — body is the filter

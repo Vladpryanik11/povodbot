@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { scenarioFromUrl } from '../mock/MockApi';
 import { ownerRoleFromUrl } from '../owner/MockOwnerApi';
 import type { CampaignApi } from './CampaignApi';
+import { HttpCampaignApi } from './HttpCampaignApi';
 import { MockCampaignApi } from './MockCampaignApi';
 
 /** null: broadcasts are not available here, and the screens hide the tab. */
@@ -9,11 +10,11 @@ const Context = createContext<CampaignApi | null | undefined>(undefined);
 
 let fallback: CampaignApi | null | undefined;
 
-/** Inside Telegram there is no HTTP client yet (stage 3), so the tab stays hidden; in a plain browser use the mock. */
+/** Inside Telegram (signed initData present) talk to the real API; in a plain browser use the in-memory mock. */
 function getFallback(): CampaignApi | null {
   if (fallback === undefined) {
     fallback = window.Telegram?.WebApp?.initData
-      ? null
+      ? new HttpCampaignApi(() => window.Telegram?.WebApp?.initData ?? '')
       : new MockCampaignApi({ role: ownerRoleFromUrl(), offline: scenarioFromUrl() === 'offline' });
   }
   return fallback;

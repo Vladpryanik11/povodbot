@@ -24,7 +24,7 @@ export function Where() {
 interface Options {
   api?: AppApi;
   ownerApi?: OwnerApi;
-  /** null: broadcasts unavailable (inside Telegram until stage 3). */
+  /** null: broadcasts unavailable, the tab hides. */
   campaignApi?: CampaignApi | null;
   tg?: TgFacade;
   /** Initial URL, e.g. '/events/e-film'. */
