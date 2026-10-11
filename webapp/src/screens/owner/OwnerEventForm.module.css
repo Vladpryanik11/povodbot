@@ -93,3 +93,24 @@ textarea.input {
   border-radius: var(--r-16);
 }
 .remove { justify-self: start; }
+.status {
+  display: flex;
+  margin: calc(-1 * var(--s-8)) 0 var(--s-20);
+}
+fieldset.fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.publish {
+  display: grid;
+  gap: var(--s-12);
+  margin-top: var(--s-32);
+}
+.hint {
+  margin: 0;
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+  text-align: center;
+}

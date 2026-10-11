@@ -5,9 +5,19 @@ import { MSG } from '../../api/owner/messages';
 import { OwnerApiError } from '../../api/owner/OwnerApi';
 import { useOwnerApi, useOwnerDrafts } from '../../api/owner/OwnerApiProvider';
 import type { OwnerEvent } from '../../api/owner/types';
-import { emptyForm, FORM_FIELDS, formFromEvent, formToInput, type EventForm, type FormField } from '../../owner/form';
+import {
+  emptyForm,
+  FORM_FIELDS,
+  formFromEvent,
+  formToInput,
+  publishGaps,
+  type EventForm,
+  type FormField,
+} from '../../owner/form';
+import { ownerStatus } from '../../owner/status';
 import { useBackButton, useClosingConfirmation, useMainButton } from '../../telegram/hooks';
 import { Button } from '../../ui/Button';
+import { Pill } from '../../ui/Pill';
 import { Skeleton } from '../../ui/Skeleton';
 import { Toggle } from '../../ui/Toggle';
 import { OwnerLoadError } from './OwnerLoadError';
@@ -24,6 +34,11 @@ interface Banner {
 
 /** What «Свой цвет афиши» starts from. */
 const DEFAULT_ACCENT = '#E8A33D';
+
+const READ_ONLY: Partial<Record<OwnerEvent['status'], string>> = {
+  completed: 'Вечер прошёл — править нельзя',
+  cancelled: 'Вечер отменён — править нельзя',
+};
 
 const isFormField = (field: string | null): field is FormField =>
   field !== null && (FORM_FIELDS as readonly string[]).includes(field);
@@ -53,11 +68,14 @@ function EventFormScreen({ id }: { id: string }) {
   const [banner, setBanner] = useState<Banner | null>(null);
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
+  const [acting, setActing] = useState(false);
+  const actInFlight = useRef(false);
 
   const savedForm = useMemo(() => (event ? formFromEvent(event) : undefined), [event]);
   /** Unsaved input first, else the saved evening. */
   const form: EventForm | undefined = edited ?? (isNew ? blank : savedForm);
   const ready = form !== undefined && directions.data !== undefined && (isNew || event !== undefined);
+  const readOnlyText = event ? READ_ONLY[event.status] : undefined;
 
   function change(patch: Partial<EventForm>, field: FormField) {
     if (!form) return;
@@ -121,6 +139,43 @@ function EventFormScreen({ id }: { id: string }) {
     }
   }
 
+  /** Publish or unpublish: one at a time, the answer becomes the evening on screen. */
+  async function act(run: () => Promise<OwnerEvent | null>, onError: (error: unknown) => void = showError) {
+    if (actInFlight.current) return;
+    actInFlight.current = true;
+    setActing(true);
+    setBanner(null);
+    try {
+      const result = await run();
+      if (result) {
+        queryClient.setQueryData(['owner', 'event', id], result);
+        void queryClient.invalidateQueries({ queryKey: ['owner', 'events'] });
+      }
+    } catch (error) {
+      onError(error);
+    } finally {
+      actInFlight.current = false;
+      setActing(false);
+    }
+  }
+
+  const publish = () =>
+    act(async () => {
+      // Unsaved input goes first; if it does not save, its error is already on screen.
+      if (dirty && !(await save())) return null;
+      return api.publish(id);
+    });
+
+  const unpublish = () =>
+    act(
+      () => api.unpublish(id),
+      (error) => {
+        // 409 here is «there are orders», not a stale version: nothing to reload.
+        if (error instanceof OwnerApiError && error.status === 409) setBanner({ text: error.message });
+        else showError(error);
+      },
+    );
+
   async function reload() {
     drafts.clear(id);
     setEdited(undefined);
@@ -132,7 +187,7 @@ function EventFormScreen({ id }: { id: string }) {
   }
 
   useMainButton(
-    ready ? { text: 'Сохранить', enabled: dirty && !saving, progress: saving, onClick: () => void save() } : null,
+    ready && !readOnlyText ? { text: 'Сохранить', enabled: dirty && !saving, progress: saving, onClick: () => void save() } : null,
   );
   useBackButton(() => navigate('/owner'));
   useClosingConfirmation(dirty);
@@ -162,10 +217,18 @@ function EventFormScreen({ id }: { id: string }) {
   }
 
   const fid = (name: string) => `${ids}-${name}`;
+  const status = event ? ownerStatus(event, false) : null;
+  const gaps = publishGaps(form, Boolean(event?.poster));
 
   return (
     <main className={styles.page}>
       <h1 className={`t-h1 ${styles.title}`}>{isNew ? 'Новый вечер' : event!.title}</h1>
+      {status ? (
+        <div className={styles.status}>
+          <Pill tone={status.tone}>{status.text}</Pill>
+        </div>
+      ) : null}
+      {readOnlyText ? <p className={`glass ${styles.banner}`}>{readOnlyText}</p> : null}
       {banner ? (
         <div role="alert" className={`glass ${styles.banner}`}>
           <p>{banner.text}</p>
@@ -176,7 +239,7 @@ function EventFormScreen({ id }: { id: string }) {
           ) : null}
         </div>
       ) : null}
-      <div className={styles.fields}>
+      <fieldset className={styles.fields} disabled={Boolean(readOnlyText)}>
         <Field id={fid('title')} label="Название" error={errors.title}>
           {(p) => <input {...p} value={form.title} onChange={(e) => change({ title: e.target.value }, 'title')} />}
         </Field>
@@ -281,7 +344,21 @@ function EventFormScreen({ id }: { id: string }) {
           error={errors.ticketTypes}
           onChange={(tickets) => change({ tickets }, 'ticketTypes')}
         />
-      </div>
+      </fieldset>
+      {readOnlyText ? null : event?.status === 'published' ? (
+        <div className={styles.publish}>
+          <Button variant="secondary" wide loading={acting} onClick={() => void unpublish()}>
+            Снять с публикации
+          </Button>
+        </div>
+      ) : (
+        <div className={styles.publish}>
+          <Button wide disabled={gaps.length > 0} loading={acting} onClick={() => void publish()}>
+            Опубликовать
+          </Button>
+          {gaps.length > 0 ? <p className={styles.hint}>{`Чтобы опубликовать, добавь: ${gaps.join(', ')}`}</p> : null}
+        </div>
+      )}
     </main>
   );
 }

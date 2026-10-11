@@ -118,4 +118,45 @@ describe('OwnerEventForm', () => {
     await saved();
     expect((await ownerApi.event('e-own-book')).address).toBeNull();
   });
+
+  it('says what publishing still needs', async () => {
+    renderForm('e-own-book');
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeDisabled();
+    expect(screen.getByText('Чтобы опубликовать, добавь: фото')).toBeInTheDocument();
+    expect(screen.getByText('Черновик · нет фото')).toBeInTheDocument();
+  });
+
+  it('saves unsaved input, then publishes', async () => {
+    const { ownerApi } = renderForm('e-own-workshop');
+    await retitle('Новое название');
+    await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+    expect(await screen.findByText(/^Опубликовано · /)).toBeInTheDocument();
+    const event = await ownerApi.event('e-own-workshop');
+    expect(event.title).toBe('Новое название');
+    expect(event.status).toBe('published');
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it('unpublishes an evening without sales', async () => {
+    renderForm('e-own-free');
+    await userEvent.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
+    expect(await screen.findByText('Черновик')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeEnabled();
+  });
+
+  it('explains why an evening with sales stays published', async () => {
+    renderForm('e-own-film');
+    await userEvent.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
+    expect(await screen.findByText(MSG.hasOrders)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Загрузить свежую версию' })).not.toBeInTheDocument();
+    expect(screen.getByText('Опубликовано · 18/30')).toBeInTheDocument();
+  });
+
+  it('opens a past evening read-only', async () => {
+    renderForm('e-own-past');
+    expect(await screen.findByText('Вечер прошёл — править нельзя')).toBeInTheDocument();
+    expect(screen.getByLabelText('Название')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+  });
 });
