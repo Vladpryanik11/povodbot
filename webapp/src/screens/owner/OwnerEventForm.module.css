@@ -114,3 +114,29 @@ fieldset.fields {
   font: 500 0.875rem/1.125rem var(--font-body);
   text-align: center;
 }
+.posterBlock {
+  display: flex;
+  align-items: center;
+  gap: var(--s-16);
+}
+.posterThumb {
+  flex: none;
+  width: 96px;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--r-12);
+  object-fit: cover;
+  background: var(--surface-3);
+}
+.noPhoto {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.posterSide {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-8);
+  min-width: 0;
+}
+.posterSide .hint { text-align: start; }

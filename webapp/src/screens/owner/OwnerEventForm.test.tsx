@@ -1,10 +1,14 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MSG } from '../../api/owner/messages';
 import { OwnerApiError } from '../../api/owner/OwnerApi';
+import { createTg } from '../../telegram/tg';
 import { renderScreen } from '../../test/render';
 import { OwnerRoutes } from './OwnerRoutes';
+
+// No timer between keystrokes: the big form re-renders on each one, and a full parallel run is slow enough already.
+const user = userEvent.setup({ delay: null });
 
 const renderForm = (id: string) => renderScreen(<OwnerRoutes />, { at: `/owner/events/${id}`, path: '/owner/*' });
 
@@ -14,27 +18,27 @@ const saveButton = () => screen.getByRole('button', { name: 'Сохранить'
 const saved = () => waitFor(() => expect(saveButton()).toBeDisabled());
 
 async function fillNewEvening() {
-  await userEvent.type(await screen.findByLabelText('Название'), 'Лекция о джазе');
+  await user.type(await screen.findByLabelText('Название'), 'Лекция о джазе');
   await screen.findByRole('option', { name: 'Книжный клуб' });
-  await userEvent.selectOptions(screen.getByLabelText('Направление'), 'Книжный клуб');
+  await user.selectOptions(screen.getByLabelText('Направление'), 'Книжный клуб');
   fireEvent.change(screen.getByLabelText('Начало'), { target: { value: '2026-10-20T19:00' } });
   fireEvent.change(screen.getByLabelText('Конец'), { target: { value: '2026-10-20T22:00' } });
-  await userEvent.type(screen.getByLabelText('Адрес'), 'Покровка, 1');
-  await userEvent.type(screen.getByLabelText('Описание'), 'Слушаем пластинки.');
-  await userEvent.type(screen.getByLabelText('Вместимость'), '20');
+  await user.type(screen.getByLabelText('Адрес'), 'Покровка, 1');
+  await user.type(screen.getByLabelText('Описание'), 'Слушаем пластинки.');
+  await user.type(screen.getByLabelText('Вместимость'), '20');
 }
 
 async function retitle(text: string) {
   const title = await screen.findByLabelText('Название');
-  await userEvent.clear(title);
-  if (text) await userEvent.type(title, text);
+  await user.clear(title);
+  if (text) await user.type(title, text);
 }
 
 describe('OwnerEventForm', () => {
   it('creates a draft and moves to its address', async () => {
     renderForm('new');
     await fillNewEvening();
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/owner\/events\/(?!new)/));
     expect(await screen.findByDisplayValue('Лекция о джазе')).toBeInTheDocument();
   });
@@ -52,7 +56,7 @@ describe('OwnerEventForm', () => {
   it('shows the server message under its field', async () => {
     renderForm('e-own-book');
     await retitle('');
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     expect(await screen.findByText(MSG.title)).toBeInTheDocument();
     expect(screen.getByLabelText('Название')).toHaveAccessibleDescription(MSG.title);
   });
@@ -61,25 +65,25 @@ describe('OwnerEventForm', () => {
     const { ownerApi } = renderForm('e-own-book');
     const update = vi.spyOn(ownerApi, 'updateEvent');
     const price = await screen.findByLabelText('Цена билета 1, ₽');
-    await userEvent.clear(price);
-    await userEvent.type(price, 'дорого');
-    await userEvent.click(saveButton());
+    await user.clear(price);
+    await user.type(price, 'дорого');
+    await user.click(saveButton());
     expect(await screen.findByText(MSG.ticketPrice)).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
   });
 
   it('does not duplicate a new ticket on the second save', async () => {
     const { ownerApi } = renderForm('e-own-book');
-    await userEvent.click(await screen.findByRole('button', { name: 'Добавить билет' }));
-    await userEvent.type(screen.getByLabelText('Название билета 2'), 'Студенческий');
-    await userEvent.type(screen.getByLabelText('Цена билета 2, ₽'), '500');
-    await userEvent.type(screen.getByLabelText('Сколько билетов 2'), '10');
-    await userEvent.click(saveButton());
+    await user.click(await screen.findByRole('button', { name: 'Добавить билет' }));
+    await user.type(screen.getByLabelText('Название билета 2'), 'Студенческий');
+    await user.type(screen.getByLabelText('Цена билета 2, ₽'), '500');
+    await user.type(screen.getByLabelText('Сколько билетов 2'), '10');
+    await user.click(saveButton());
     await saved();
     expect(screen.queryByRole('button', { name: 'Убрать билет 2' })).not.toBeInTheDocument();
 
     await retitle('Книжный клуб: Сорокин');
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     await saved();
     const event = await ownerApi.event('e-own-book');
     expect(event.title).toBe('Книжный клуб: Сорокин');
@@ -90,7 +94,7 @@ describe('OwnerEventForm', () => {
     const { ownerApi } = renderForm('e-own-book');
     vi.spyOn(ownerApi, 'updateEvent').mockRejectedValue(new OwnerApiError(0, MSG.network));
     await retitle('Книжный клуб: Сорокин');
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     expect(await screen.findByText(MSG.network)).toBeInTheDocument();
     expect(screen.getByLabelText('Название')).toHaveValue('Книжный клуб: Сорокин');
     expect(saveButton()).toBeEnabled();
@@ -102,9 +106,9 @@ describe('OwnerEventForm', () => {
     const { updatedAt } = await ownerApi.event('e-own-book');
     await ownerApi.updateEvent('e-own-book', { updatedAt, title: 'Чужая правка' });
     await retitle('Моя правка');
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     expect(await screen.findByText(MSG.conflict)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Загрузить свежую версию' }));
+    await user.click(screen.getByRole('button', { name: 'Загрузить свежую версию' }));
     expect(await screen.findByDisplayValue('Чужая правка')).toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
   });
@@ -112,9 +116,9 @@ describe('OwnerEventForm', () => {
   it('hides the address when the venue is not decided', async () => {
     const { ownerApi } = renderForm('e-own-book');
     await screen.findByLabelText('Адрес');
-    await userEvent.click(screen.getByRole('switch', { name: 'Место уточняется' }));
+    await user.click(screen.getByRole('switch', { name: 'Место уточняется' }));
     expect(screen.queryByLabelText('Адрес')).not.toBeInTheDocument();
-    await userEvent.click(saveButton());
+    await user.click(saveButton());
     await saved();
     expect((await ownerApi.event('e-own-book')).address).toBeNull();
   });
@@ -129,7 +133,7 @@ describe('OwnerEventForm', () => {
   it('saves unsaved input, then publishes', async () => {
     const { ownerApi } = renderForm('e-own-workshop');
     await retitle('Новое название');
-    await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+    await user.click(screen.getByRole('button', { name: 'Опубликовать' }));
     expect(await screen.findByText(/^Опубликовано · /)).toBeInTheDocument();
     const event = await ownerApi.event('e-own-workshop');
     expect(event.title).toBe('Новое название');
@@ -139,17 +143,53 @@ describe('OwnerEventForm', () => {
 
   it('unpublishes an evening without sales', async () => {
     renderForm('e-own-free');
-    await userEvent.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
+    await user.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
     expect(await screen.findByText('Черновик')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeEnabled();
   });
 
   it('explains why an evening with sales stays published', async () => {
     renderForm('e-own-film');
-    await userEvent.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
+    await user.click(await screen.findByRole('button', { name: 'Снять с публикации' }));
     expect(await screen.findByText(MSG.hasOrders)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Загрузить свежую версию' })).not.toBeInTheDocument();
     expect(screen.getByText('Опубликовано · 18/30')).toBeInTheDocument();
+  });
+
+  it('keeps unsaved input across a poster upload and saves without a conflict', async () => {
+    const { ownerApi } = renderForm('e-own-book');
+    await retitle('Без конфликта');
+    await user.click(screen.getByRole('button', { name: 'Добавить фото' }));
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument();
+    await user.upload(screen.getByLabelText('Фото из галереи'), new File(['x'], 'photo.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: 'Готово' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByLabelText('Название')).toHaveValue('Без конфликта');
+    expect(screen.getByRole('button', { name: 'Сменить фото' })).toBeInTheDocument();
+
+    await user.click(saveButton());
+    await saved();
+    expect(screen.queryByText(MSG.conflict)).not.toBeInTheDocument();
+    const event = await ownerApi.event('e-own-book');
+    expect(event.title).toBe('Без конфликта');
+    expect(event.poster).not.toBeNull();
+  });
+
+  it('closes the poster sheet with the Telegram back button', async () => {
+    const tg = createTg();
+    const back = vi.spyOn(tg.backButton, 'set');
+    renderScreen(<OwnerRoutes />, { at: '/owner/events/e-own-book', path: '/owner/*', tg });
+    await user.click(await screen.findByRole('button', { name: 'Добавить фото' }));
+    const onBack = back.mock.calls.filter((c) => c[0]).at(-1)![0] as () => void;
+    act(() => onBack());
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByTestId('where')).toHaveTextContent('/owner/events/e-own-book');
+  });
+
+  it('disables photos for an unsaved evening', async () => {
+    renderForm('new');
+    expect(await screen.findByRole('button', { name: 'Добавить фото' })).toBeDisabled();
+    expect(screen.getByText('Фото добавишь после первого сохранения')).toBeInTheDocument();
   });
 
   it('opens a past evening read-only', async () => {

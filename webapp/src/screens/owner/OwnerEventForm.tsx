@@ -21,6 +21,7 @@ import { Pill } from '../../ui/Pill';
 import { Skeleton } from '../../ui/Skeleton';
 import { Toggle } from '../../ui/Toggle';
 import { OwnerLoadError } from './OwnerLoadError';
+import { objectPosition, PosterSheet } from './PosterSheet';
 import { TicketRowsEditor } from './TicketRowsEditor';
 import styles from './OwnerEventForm.module.css';
 
@@ -69,6 +70,7 @@ function EventFormScreen({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const inFlight = useRef(false);
   const [acting, setActing] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const actInFlight = useRef(false);
 
   const savedForm = useMemo(() => (event ? formFromEvent(event) : undefined), [event]);
@@ -176,6 +178,18 @@ function EventFormScreen({ id }: { id: string }) {
       },
     );
 
+  /** A new poster or focus: only the saved evening changes; the owner's unsaved input stays, and the next save sends the fresh version. */
+  function posterDone(result: OwnerEvent) {
+    queryClient.setQueryData(['owner', 'event', id], result);
+    void queryClient.invalidateQueries({ queryKey: ['owner', 'events'] });
+    setErrors((prev) => {
+      const rest = { ...prev };
+      delete rest.poster;
+      return rest;
+    });
+    setSheetOpen(false);
+  }
+
   async function reload() {
     drafts.clear(id);
     setEdited(undefined);
@@ -187,9 +201,9 @@ function EventFormScreen({ id }: { id: string }) {
   }
 
   useMainButton(
-    ready && !readOnlyText ? { text: 'Сохранить', enabled: dirty && !saving, progress: saving, onClick: () => void save() } : null,
+    ready && !readOnlyText && !sheetOpen ? { text: 'Сохранить', enabled: dirty && !saving, progress: saving, onClick: () => void save() } : null,
   );
-  useBackButton(() => navigate('/owner'));
+  useBackButton(() => (sheetOpen ? setSheetOpen(false) : navigate('/owner')));
   useClosingConfirmation(dirty);
 
   if (!ready) {
@@ -240,6 +254,25 @@ function EventFormScreen({ id }: { id: string }) {
         </div>
       ) : null}
       <fieldset className={styles.fields} disabled={Boolean(readOnlyText)}>
+        <div className={styles.posterBlock}>
+          {event?.poster ? (
+            <img
+              className={styles.posterThumb}
+              src={event.poster.url}
+              alt=""
+              style={{ objectPosition: objectPosition({ x: event.poster.focusX, y: event.poster.focusY }) }}
+            />
+          ) : (
+            <span className={`${styles.posterThumb} ${styles.noPhoto}`}>нет фото</span>
+          )}
+          <div className={styles.posterSide}>
+            <Button variant="secondary" disabled={isNew} onClick={() => setSheetOpen(true)}>
+              {event?.poster ? 'Сменить фото' : 'Добавить фото'}
+            </Button>
+            {isNew ? <p className={styles.hint}>Фото добавишь после первого сохранения</p> : null}
+            {errors.poster ? <p className={styles.error}>{errors.poster}</p> : null}
+          </div>
+        </div>
         <Field id={fid('title')} label="Название" error={errors.title}>
           {(p) => <input {...p} value={form.title} onChange={(e) => change({ title: e.target.value }, 'title')} />}
         </Field>
@@ -359,6 +392,9 @@ function EventFormScreen({ id }: { id: string }) {
           {gaps.length > 0 ? <p className={styles.hint}>{`Чтобы опубликовать, добавь: ${gaps.join(', ')}`}</p> : null}
         </div>
       )}
+      {sheetOpen && event ? (
+        <PosterSheet eventId={id} poster={event.poster} onDone={posterDone} onClose={() => setSheetOpen(false)} />
+      ) : null}
     </main>
   );
 }

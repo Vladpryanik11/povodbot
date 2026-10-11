@@ -1,0 +1,104 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--s-16) var(--s-16) max(var(--s-16), env(safe-area-inset-bottom));
+  background: var(--scrim);
+}
+.sheet {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: grid;
+  gap: var(--s-16);
+  padding: var(--s-24) var(--s-20) var(--s-20);
+  border: 1px solid var(--border);
+  border-radius: var(--r-28);
+  background: var(--surface-1);
+}
+.title { margin: 0; }
+.text {
+  margin: 0;
+  color: var(--text-2);
+  font: 400 0.9375rem/1.375rem var(--font-body);
+}
+/* Out of sight but still clickable from «Выбрать фото». */
+.file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.stageWrap {
+  display: flex;
+  justify-content: center;
+}
+/* Sized by the photo, so a tap maps straight onto it. */
+.stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  border-radius: var(--r-12);
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.stage:focus-visible { outline: 2px solid var(--text-1); outline-offset: 2px; }
+.photo {
+  display: block;
+  max-width: 100%;
+  max-height: 40vh;
+}
+.marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 3px solid var(--on-photo);
+  border-radius: var(--r-pill);
+  box-shadow: 0 0 0 2px var(--scrim);
+  pointer-events: none;
+}
+.crops {
+  display: grid;
+  grid-template-columns: 4fr 6fr;
+  gap: var(--s-12);
+  align-items: start;
+}
+.crop {
+  display: grid;
+  gap: var(--s-4);
+  min-width: 0;
+  margin: 0;
+}
+.crop:last-child { grid-column: 1 / -1; }
+.frame {
+  overflow: hidden;
+  border-radius: var(--r-12);
+  background: var(--surface-3);
+}
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.caption {
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.error {
+  margin: 0;
+  color: var(--error);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.actions {
+  display: grid;
+  gap: var(--s-8);
+}
