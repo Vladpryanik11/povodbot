@@ -106,7 +106,8 @@ async def test_directions_lists_active_only(pg_factory, owner_env):
 
 async def test_unconfigured_telegram_token_fails_closed(pg_factory, owner_env, monkeypatch):
     # An empty bot token would make initData signable by anyone; refuse to authenticate.
-    monkeypatch.delenv("TELEGRAM_TOKEN")
+    # setenv, not delenv: Settings also reads .env, which may hold a real token on a dev machine.
+    monkeypatch.setenv("TELEGRAM_TOKEN", "")
     get_settings.cache_clear()
     await make_admin(pg_factory, role="owner")
     forged = {"Authorization": f"tma {sign_init_data(42, token='')}"}
