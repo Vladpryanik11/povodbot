@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     campaign_rate_limit_per_second: int = Field(default=25, gt=0)
     media_root: Path = Path("media")
     miniapp_url: str = ""
+    # Broadcast buttons: the Mini App as a t.me link (https://t.me/<bot>/<app>)
+    # and the public address that serves /r/<code> click redirects.
+    miniapp_link: str = ""
+    public_base_url: str = ""
     support_contact: str = ""
 
     @field_validator("database_url", "redis_url")
