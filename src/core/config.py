@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     campaign_rate_limit_per_second: int = Field(default=25, gt=0)
     media_root: Path = Path("media")
+    miniapp_url: str = ""
 
     @field_validator("database_url", "redis_url")
     @classmethod
@@ -53,6 +54,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Expected an absolute runtime URL with a valid host and database"
             ) from None
+        return value
+
+    @field_validator("miniapp_url")
+    @classmethod
+    def validate_miniapp_url(cls, value: str) -> str:
+        """Empty keeps the bot a plain chat menu; otherwise Telegram needs an https address."""
+        value = value.strip()
+        if not value:
+            return ""
+        parsed = urlsplit(value)
+        if parsed.scheme != "https" or not parsed.hostname or any(c.isspace() for c in value):
+            raise ValueError("miniapp_url must be an absolute https:// address")
         return value
 
     @property

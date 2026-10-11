@@ -64,12 +64,14 @@ class StartHandler:
         directions: DirectionService,
         texts: ConsentTexts,
         attribution: AttributionService | None = None,
+        miniapp_url: str = "",
     ):
         self.users = users
         self.consents = consents
         self.directions = directions
         self.texts = texts
         self.attribution = attribution
+        self.miniapp_url = miniapp_url
 
     async def prompt(self, user_id: UUID, consent_type: ConsentType) -> BotResponse:
         if consent_type == ConsentType.PERSONAL_DATA:
@@ -107,6 +109,7 @@ class StartHandler:
                 active,
                 self.texts.marketing_version,
                 latest.sequence if latest else 0,
+                self.miniapp_url,
             ),
         )
 

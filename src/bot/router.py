@@ -35,9 +35,11 @@ def create_router(
     session_factory: async_sessionmaker[AsyncSession] | None = None,
     texts: ConsentTexts | None = None,
     payment_gateway: PaymentGateway | None = None,
+    miniapp_url: str | None = None,
 ) -> Router:
     router = Router(name="onboarding")
     consent_texts = texts or ConsentTexts.from_settings()
+    app_url = get_settings().miniapp_url if miniapp_url is None else miniapp_url
 
     def handler(session: AsyncSession) -> StartHandler:
         return StartHandler(
@@ -46,6 +48,7 @@ def create_router(
             DirectionService(DirectionRepository(session)),
             consent_texts,
             AttributionService(session),
+            app_url,
         )
 
     @router.message(CommandStart(), F.chat.type == "private")

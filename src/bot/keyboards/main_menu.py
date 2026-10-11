@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from src.services.directions.service import DirectionDTO
 
@@ -8,10 +8,16 @@ def main_menu(
     marketing_active: bool,
     marketing_version: str,
     marketing_sequence: int,
+    miniapp_url: str = "",
 ) -> InlineKeyboardMarkup:
-    rows = [
+    rows = []
+    if miniapp_url:
+        rows.append(
+            [InlineKeyboardButton(text="Открыть Повод", web_app=WebAppInfo(url=miniapp_url))]
+        )
+    rows.extend(
         [InlineKeyboardButton(text=d.name, callback_data=f"direction:{d.id}")] for d in directions
-    ]
+    )
     rows.extend(
         [
             [InlineKeyboardButton(text="Мои билеты", callback_data="tickets:mine")],
