@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../api/ApiProvider';
 import { useFavorites } from '../lib/favorites';
 import { EmptyState } from '../ui/EmptyState';
+import { ErrorState } from '../ui/ErrorState';
 import { PosterCard } from '../ui/PosterRow';
 import { Skeleton } from '../ui/Skeleton';
 import styles from './Favorites.module.css';
@@ -12,6 +13,18 @@ export function Favorites() {
   const favorites = useFavorites();
   const events = useQuery({ queryKey: ['events', 'all'], queryFn: () => api.events() });
 
+  if (events.isError) {
+    return (
+      <main className={styles.page}>
+        <ErrorState
+          title="Нет связи"
+          text="Проверь интернет и попробуй ещё раз."
+          actionLabel="Повторить"
+          onAction={() => void events.refetch()}
+        />
+      </main>
+    );
+  }
   if (!favorites.ready || events.isPending) {
     return (
       <main className={styles.page}>

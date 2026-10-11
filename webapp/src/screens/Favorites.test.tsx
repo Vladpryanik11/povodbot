@@ -1,7 +1,8 @@
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MockApi } from '../api/mock/MockApi';
 import { createTg } from '../telegram/tg';
-import { renderScreen } from '../test/render';
+import { renderScreen, T0 } from '../test/render';
 import { Favorites } from './Favorites';
 
 beforeEach(() => localStorage.clear());
@@ -19,5 +20,13 @@ describe('Favorites', () => {
     renderScreen(<Favorites />, { at: '/favorites', tg });
     expect(await screen.findByText('Лепим чашку из глины')).toBeInTheDocument();
     expect(screen.queryByText('Амели на большом экране')).toBeNull();
+  });
+
+  it('offline says there is no connection instead of «nothing saved»', async () => {
+    const tg = createTg();
+    await tg.storage.set('fav', '["e-film"]');
+    renderScreen(<Favorites />, { at: '/favorites', tg, api: new MockApi({ scenario: 'offline', latencyMs: 0, now: () => T0 }) });
+    expect(await screen.findByText('Нет связи')).toBeInTheDocument();
+    expect(screen.queryByText('Тут будут сохранённые вечера')).toBeNull();
   });
 });

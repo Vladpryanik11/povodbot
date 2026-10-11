@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TgProvider } from '../telegram/hooks';
 import { createTg } from '../telegram/tg';
 import { parseFavorites, useFavorites } from './favorites';
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
 describe('parseFavorites', () => {
   it('treats garbage as an empty list', () => {
@@ -41,5 +42,26 @@ describe('useFavorites', () => {
     act(() => result.current.toggle('e-film'));
     await waitFor(() => expect(result.current.ids).toEqual([]));
     await waitFor(async () => expect(await tg.storage.get('fav')).toBe('[]'));
+  });
+
+  it('a tap before CloudStorage answers adds to the saved list instead of overwriting it', async () => {
+    const tg = createTg();
+    await tg.storage.set('fav', '["e-book"]');
+    const read = tg.storage.get.bind(tg.storage);
+    let answer!: () => void;
+    const slow = new Promise<void>((resolve) => (answer = resolve));
+    vi.spyOn(tg.storage, 'get').mockImplementation(async (key) => {
+      await slow;
+      return read(key);
+    });
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, createElement(TgProvider, { value: tg, children }));
+    const { result } = renderHook(() => useFavorites(), { wrapper });
+
+    act(() => result.current.toggle('e-film'));
+    answer();
+    await waitFor(() => expect(result.current.ids).toEqual(['e-book', 'e-film']));
+    expect(await read('fav')).toBe('["e-book","e-film"]');
   });
 });

@@ -20,25 +20,25 @@ export function parseFavorites(raw: string | null): string[] {
   return ids.slice(-LIMIT);
 }
 
-/** Saved events, shared by every heart on screen through the query cache; writes are optimistic. */
+/** Saved events, shared by every heart on screen through the query cache; writes land once the stored list is known. */
 export function useFavorites(): { ids: string[]; ready: boolean; has(id: string): boolean; toggle(id: string): void } {
   const tg = useTg();
   const client = useQueryClient();
-  const query = useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: async () => parseFavorites(await tg.storage.get(KEY)),
-    staleTime: Infinity,
-  });
+  const load = useCallback(async () => parseFavorites(await tg.storage.get(KEY)), [tg]);
+  const query = useQuery({ queryKey: QUERY_KEY, queryFn: load, staleTime: Infinity });
   const ids = query.data ?? [];
 
   const toggle = useCallback(
     (id: string) => {
-      const current = client.getQueryData<string[]>(QUERY_KEY) ?? [];
-      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id].slice(-LIMIT);
-      client.setQueryData(QUERY_KEY, next);
-      void tg.storage.set(KEY, JSON.stringify(next));
+      // A tap before CloudStorage has answered must not write over the saved list: read it first.
+      void client.ensureQueryData({ queryKey: QUERY_KEY, queryFn: load }).then(() => {
+        const current = client.getQueryData<string[]>(QUERY_KEY) ?? [];
+        const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id].slice(-LIMIT);
+        client.setQueryData(QUERY_KEY, next);
+        void tg.storage.set(KEY, JSON.stringify(next));
+      });
     },
-    [client, tg],
+    [client, tg, load],
   );
 
   return { ids, ready: query.isSuccess, has: (id) => ids.includes(id), toggle };
