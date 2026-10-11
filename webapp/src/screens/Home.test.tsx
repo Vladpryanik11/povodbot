@@ -76,4 +76,19 @@ describe('Home', () => {
     const plaque = await screen.findByRole('link', { name: /Бронь ждёт оплаты/ });
     expect(plaque).toHaveAttribute('href', `/order/${order.id}`);
   });
+
+  it('drops the reservation plaque once the hold has expired', async () => {
+    const api = new MockApi({ latencyMs: 0, now: () => T0 });
+    const detail = await api.event('e-film');
+    const order = await api.createOrder('e-film', [{ ticketTypeId: detail.ticketTypes[0].id, qty: 1 }]);
+    renderScreen(<Home />, { api });
+    await screen.findByRole('link', { name: /Бронь ждёт оплаты/ });
+
+    act(() => {
+      vi.setSystemTime(Date.parse(order.expiresAt) + 1000);
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.queryByRole('link', { name: /Бронь ждёт оплаты/ })).not.toBeInTheDocument();
+  });
 });
