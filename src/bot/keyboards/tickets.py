@@ -1,10 +1,7 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
+
+from src.bot.keyboards.main_menu import back_to_menu
 
 
-def tickets_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="К афише", callback_data="events:all")],
-            [InlineKeyboardButton(text="Главное меню", callback_data="events:menu")],
-        ]
-    )
+def tickets_keyboard(miniapp_url: str = "", empty: bool = False) -> InlineKeyboardMarkup:
+    return back_to_menu(miniapp_url, with_open=empty)

@@ -44,3 +44,17 @@ async def test_database_rejects_mutating_consent_history(db_session, operation):
     with pytest.raises(DBAPIError, match="append-only"):
         async with db_session.begin_nested():
             await db_session.execute(statements[operation])
+
+
+async def test_stop_command_path_revokes_marketing_even_without_prior_record(pg_factory):
+    from src.bot.handlers.settings import SettingsHandler
+
+    async with pg_factory() as session, session.begin():
+        user = await UserService(UserRepository(session)).upsert_telegram_user(
+            7, None, None, None, None
+        )
+        await SettingsHandler(ConsentRepository(session)).unsubscribe_marketing(user.id)
+    async with pg_factory() as session:
+        assert not await ConsentService(ConsentRepository(session)).is_active(
+            user.id, ConsentType.MARKETING
+        )

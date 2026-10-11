@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 
+from src.bot import copy
+
 
 @dataclass(frozen=True)
 class SupportHandler:
-    contact_text: str = "Напишите администратору клуба «Повод» — мы поможем разобраться с заказом."
+    contact: str = ""
 
     def answer(self) -> str:
-        return self.contact_text
+        contact = self.contact.strip()
+        if contact:
+            return copy.SUPPORT_WITH_CONTACT.format(contact=contact)
+        return copy.SUPPORT_NO_CONTACT

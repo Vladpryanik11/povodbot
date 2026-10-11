@@ -1,7 +1,6 @@
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
-import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
 from aiogram.methods import AnswerCallbackQuery, SendMessage
@@ -82,92 +81,64 @@ def callbacks(transport):
     ]
 
 
-async def test_start_and_consent_flow_survives_recreated_dispatchers(pg_factory):
+async def test_start_asks_for_no_consent_and_greets_first_then_again(pg_factory):
     transport = TelegramTransport()
     bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
     await feed_start(pg_factory, bot)
-    assert "consent:personal_data:grant:draft-v1:0" in callbacks(transport)
+    assert transport.sent[-1].text == (
+        "Привет, Анна! Это «Повод».\n\nВсе наши вечера и билеты в приложении, открывается кнопкой."
+    )
+    assert callbacks(transport) == ["tickets:mine", "support"]
     async with pg_factory() as session:
         assert await session.scalar(select(func.count()).select_from(Consent)) == 0
-    await press(pg_factory, bot, rendered_callback(transport, "personal_data", "grant"))
-    assert "consent:marketing:grant:draft-v1:0" in callbacks(transport)
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "skip"))
-    assert "direction:00000000-0000-0000-0000-000000000001" in callbacks(transport)
     await feed_start(pg_factory, bot, "/start latest", "changed")
+    assert transport.sent[-1].text == "Привет, Анна! Открывай, посмотри, что у нас скоро."
     async with pg_factory() as session:
         user = (await session.scalars(select(User))).one()
         assert user.username == "changed"
         assert user.first_start_param == "first"
         assert user.last_start_param == "latest"
         assert await session.scalar(select(func.count()).select_from(User)) == 1
-        service = ConsentService(ConsentRepository(session))
-        assert await service.is_active(user.id, ConsentType.PERSONAL_DATA)
-        assert not await service.is_active(user.id, ConsentType.MARKETING)
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "show"))
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "grant"))
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "revoke"))
-    async with pg_factory() as session:
-        assert not await ConsentService(ConsentRepository(session)).is_active(
-            user.id, ConsentType.MARKETING
-        )
-        assert await session.scalar(select(func.count()).select_from(Consent)) == 4
+        assert await session.scalar(select(func.count()).select_from(Consent)) == 0
 
 
-async def test_marketing_skip_persists_refusal_after_restart(pg_factory):
+async def test_old_consent_buttons_just_show_the_menu(pg_factory):
     transport = TelegramTransport()
     bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
     await feed_start(pg_factory, bot)
-    await press(pg_factory, bot, rendered_callback(transport, "personal_data", "grant"))
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "skip"))
-    async with pg_factory() as session:
-        events = (await session.scalars(select(Consent).order_by(Consent.sequence))).all()
-        assert len(events) == 2
-        assert events[-1].status == "revoked"
-    await feed_start(pg_factory, bot)
-    assert rendered_callback(transport, "marketing", "show")
-
-
-async def test_stale_marketing_opt_out_works_after_personal_consent_revocation(pg_factory):
-    transport = TelegramTransport()
-    bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
-    await feed_start(pg_factory, bot)
-    await press(pg_factory, bot, rendered_callback(transport, "personal_data", "grant"))
-    await press(pg_factory, bot, rendered_callback(transport, "marketing", "grant"))
-    async with pg_factory() as session, session.begin():
-        user = (await session.scalars(select(User))).one()
-        from src.models.identity import ConsentSource
-
-        await ConsentService(ConsentRepository(session)).revoke(
-            user.id, ConsentType.PERSONAL_DATA, ConsentSource.ADMIN
-        )
-    await press(pg_factory, bot, "consent:marketing:revoke:obsolete:0")
-    async with pg_factory() as session:
-        assert not await ConsentService(ConsentRepository(session)).is_active(
-            user.id, ConsentType.MARKETING
-        )
-
-
-@pytest.mark.parametrize(
-    "data",
-    [
-        "consent:personal_data:grant:obsolete",
-        "consent:personal_data:grant:draft-v1",
-        "consent:personal_data:grant:draft-v1:1",
-        "consent:personal_data:grant:draft-v1:-1",
-        "consent:personal_data:grant:draft-v1:9223372036854775808",
-        "consent:personal_data:grant:draft-v1:invalid",
-        "consent:marketing:grant:draft-v1:0",
-        "consent:unknown:grant:draft-v1:0",
-    ],
-)
-async def test_invalid_or_out_of_order_callbacks_do_not_grant_consent(pg_factory, data):
-    transport = TelegramTransport()
-    bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
-    await feed_start(pg_factory, bot)
-    await press(pg_factory, bot, data)
+    for data in ("consent:personal_data:grant:draft-v1:0", "consent:marketing:revoke:x:0"):
+        await press(pg_factory, bot, data)
+        assert transport.sent[-1].text == "Привет, Анна! Открывай, посмотри, что у нас скоро."
     async with pg_factory() as session:
         assert await session.scalar(select(func.count()).select_from(Consent)) == 0
-    assert "consent:personal_data:grant:draft-v1:0" in callbacks(transport)
+
+
+async def test_stop_revokes_marketing_and_replies_in_voice(pg_factory):
+    transport = TelegramTransport()
+    bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
+    await feed_start(pg_factory, bot)
+    await feed_start(pg_factory, bot, "/stop")
+    assert transport.sent[-1].text.startswith("Ок, больше не пишем про новые вечера.")
+    async with pg_factory() as session:
+        user = (await session.scalars(select(User))).one()
+        assert not await ConsentService(ConsentRepository(session)).is_active(
+            user.id, ConsentType.MARKETING
+        )
+
+
+async def test_tickets_help_commands_and_unknown_text(pg_factory):
+    transport = TelegramTransport()
+    bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
+    await feed_start(pg_factory, bot, "/tickets")  # unknown user gets the start menu
+    assert transport.sent[-1].text.startswith("Привет, Анна! Это «Повод».")
+    await feed_start(pg_factory, bot, "/tickets")
+    assert transport.sent[-1].text == "Билетов пока нет. Загляни в приложение, там афиша."
+    assert callbacks(transport) == ["events:menu"]
+    await feed_start(pg_factory, bot, "/help")
+    assert "напиши нам" in transport.sent[-1].text
+    await feed_start(pg_factory, bot, "что вы делаете?")
+    assert transport.sent[-1].text.startswith("Мы тут отвечаем только на кнопки.")
+    assert callbacks(transport) == ["tickets:mine", "support"]
 
 
 async def test_group_start_does_not_register_profile(pg_factory):
@@ -182,59 +153,15 @@ async def test_group_start_does_not_register_profile(pg_factory):
         assert await session.scalar(select(func.count()).select_from(User)) == 0
 
 
-def rendered_callback(transport, consent_type, action):
-    prefix = f"consent:{consent_type}:{action}:"
-    return next(data for data in callbacks(transport) if data.startswith(prefix))
-
-
-async def test_replayed_grant_stays_revoked_and_fresh_prompt_can_reconsent(pg_factory):
-    transport = TelegramTransport()
-    bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
-    await feed_start(pg_factory, bot)
-    await press(pg_factory, bot, rendered_callback(transport, "personal_data", "grant"))
-    old_grant = rendered_callback(transport, "marketing", "grant")
-    await press(pg_factory, bot, old_grant)
-    revoke = rendered_callback(transport, "marketing", "revoke")
-    await press(pg_factory, bot, revoke)
-    # press() creates a new dispatcher/router for every update.
-    await press(pg_factory, bot, old_grant)
-    async with pg_factory() as session:
-        user = (await session.scalars(select(User))).one()
-        assert not await ConsentService(ConsentRepository(session)).is_active(
-            user.id, ConsentType.MARKETING
-        )
-        assert await session.scalar(select(func.count()).select_from(Consent)) == 3
-    fresh_grant = rendered_callback(transport, "marketing", "grant")
-    assert fresh_grant != old_grant
-    await press(pg_factory, bot, fresh_grant)
-    async with pg_factory() as session:
-        assert await ConsentService(ConsentRepository(session)).is_active(
-            user.id, ConsentType.MARKETING
-        )
-        assert await session.scalar(select(func.count()).select_from(Consent)) == 4
-    # A consumed current prompt must also be single-use before any revoke.
-    await press(pg_factory, bot, fresh_grant)
-    async with pg_factory() as session:
-        assert await session.scalar(select(func.count()).select_from(Consent)) == 4
-
-
 async def test_overlong_start_args_get_clear_response_without_profile_write(pg_factory):
     transport = TelegramTransport()
     bot = Bot("123456:TEST_TOKEN_NOT_A_REAL_SECRET", session=transport)
     await feed_start(pg_factory, bot, "/start " + "x" * 65)
-    assert "64" in transport.sent[-1].text
-    assert "/start" in transport.sent[-1].text
+    assert transport.sent[-1].text == "Что-то не так со ссылкой. Отправь просто /start."
     async with pg_factory() as session:
         assert await session.scalar(select(func.count()).select_from(User)) == 0
     await feed_start(pg_factory, bot, "/start " + "x" * 64)
-    assert "consent:personal_data:grant:draft-v1:0" in callbacks(transport)
+    assert "Привет, Анна!" in transport.sent[-1].text
     async with pg_factory() as session:
         user = (await session.scalars(select(User))).one()
         assert user.first_start_param == "x" * 64
-
-
-def test_revision_callbacks_fit_telegram_limit():
-    from src.bot.keyboards.main_menu import consent_prompt
-
-    keyboard = consent_prompt("personal_data", "v" * 16, 2**63 - 1)
-    assert len(keyboard.inline_keyboard[0][0].callback_data.encode("utf-8")) <= 64

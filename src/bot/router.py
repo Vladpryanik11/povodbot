@@ -3,24 +3,25 @@ from uuid import UUID
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message
+from aiogram.types import User as TelegramUser
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.bot import copy
 from src.bot.handlers.checkout import CheckoutHandler
 from src.bot.handlers.events import EventHandler
 from src.bot.handlers.settings import SettingsHandler
-from src.bot.handlers.start import BotResponse, ConsentTexts, StartHandler
+from src.bot.handlers.start import BotResponse, StartHandler, menu_response
 from src.bot.handlers.support import SupportHandler
 from src.bot.handlers.tickets import TicketHandler
 from src.bot.keyboards.events import events_keyboard
+from src.bot.keyboards.main_menu import back_to_menu
 from src.core.config import get_settings
 from src.db.session import get_session_factory
-from src.models.identity import ConsentType
 from src.repositories.consents import ConsentRepository
 from src.repositories.directions import DirectionRepository
 from src.repositories.events import EventRepository
 from src.repositories.users import UserRepository
 from src.services.analytics.attribution import AttributionService
-from src.services.consents.service import ConsentService
 from src.services.directions.service import DirectionService
 from src.services.events.service import EventService
 from src.services.orders.service import PendingOrderDTO
@@ -33,20 +34,18 @@ from src.services.users.service import UserService
 
 def create_router(
     session_factory: async_sessionmaker[AsyncSession] | None = None,
-    texts: ConsentTexts | None = None,
     payment_gateway: PaymentGateway | None = None,
     miniapp_url: str | None = None,
+    support_contact: str | None = None,
 ) -> Router:
     router = Router(name="onboarding")
-    consent_texts = texts or ConsentTexts.from_settings()
-    app_url = get_settings().miniapp_url if miniapp_url is None else miniapp_url
+    settings = get_settings()
+    app_url = settings.miniapp_url if miniapp_url is None else miniapp_url
+    contact = settings.support_contact if support_contact is None else support_contact
 
     def handler(session: AsyncSession) -> StartHandler:
         return StartHandler(
             UserService(UserRepository(session)),
-            ConsentService(ConsentRepository(session)),
-            DirectionService(DirectionRepository(session)),
-            consent_texts,
             AttributionService(session),
             app_url,
         )
@@ -56,10 +55,7 @@ def create_router(
         if message.from_user is None:
             return
         if command.args is not None and len(command.args) > 64:
-            await message.answer(
-                "Параметр /start слишком длинный: максимум 64 символа. "
-                "Отправьте /start без параметра или воспользуйтесь корректной ссылкой."
-            )
+            await message.answer(copy.ERR_START_PARAM)
             return
         factory = session_factory or get_session_factory()
         async with factory() as session, session.begin():
@@ -76,16 +72,43 @@ def create_router(
             user = await UserRepository(session).by_telegram_id(message.from_user.id)
             if user is not None:
                 await SettingsHandler(ConsentRepository(session)).unsubscribe_marketing(user.id)
-        await message.answer("Рекламные сообщения отключены. Вернуть их можно в настройках.")
+        await message.answer(copy.STOP_REPLY)
 
-    @router.callback_query(F.data.startswith("consent:"), F.message.chat.type == "private")
-    async def consent(query: CallbackQuery) -> None:
-        if not isinstance(query.message, Message) or query.data is None:
-            await query.answer()
+    async def personal_area_response(
+        session: AsyncSession, sender: TelegramUser, what: str
+    ) -> BotResponse:
+        user = await UserRepository(session).by_telegram_id(sender.id)
+        if user is None:
+            return await handler(session).start(sender, None)
+        if what == "tickets":
+            return await TicketHandler(session, app_url).mine(user.id)
+        return BotResponse(SupportHandler(contact).answer(), back_to_menu())
+
+    @router.message(Command("tickets"), F.chat.type == "private")
+    async def tickets_command(message: Message) -> None:
+        if message.from_user is None:
             return
         factory = session_factory or get_session_factory()
         async with factory() as session, session.begin():
-            response = await handler(session).consent(query.from_user, query.data)
+            response = await personal_area_response(session, message.from_user, "tickets")
+        await message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
+
+    @router.message(Command("help"), F.chat.type == "private")
+    async def help_command(message: Message) -> None:
+        if message.from_user is None:
+            return
+        factory = session_factory or get_session_factory()
+        async with factory() as session, session.begin():
+            response = await personal_area_response(session, message.from_user, "support")
+        await message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
+
+    @router.callback_query(F.data.startswith("consent:"), F.message.chat.type == "private")
+    async def legacy_consent(query: CallbackQuery) -> None:
+        # Buttons from old consent prompts: nothing to record any more, just show the menu.
+        if not isinstance(query.message, Message):
+            await query.answer()
+            return
+        response = menu_response(query.from_user.first_name, app_url)
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard)
 
@@ -102,9 +125,7 @@ def create_router(
         created_gateway: TBankPaymentGateway | None = None
         async with factory() as session, session.begin():
             user = await UserRepository(session).by_telegram_id(query.from_user.id)
-            if user is None or not await ConsentService(ConsentRepository(session)).is_active(
-                user.id, ConsentType.PERSONAL_DATA
-            ):
+            if user is None:
                 response = await handler(session).start(query.from_user, None)
             else:
                 parts = query.data.split(":")
@@ -116,14 +137,14 @@ def create_router(
                             UUID(parts[1]), int(parts[2]), user.id
                         )
                         response = BotResponse(
-                            "Заказ создан. Готовим защищённую ссылку на оплату…",
+                            copy.ORDER_CREATED,
                             events_keyboard([]),
                         )
                     else:
                         raise ValueError("Invalid checkout callback")
                 except (LookupError, PaymentStateError, ValueError):
                     response = BotResponse(
-                        "Не удалось создать заказ. Откройте актуальную афишу и попробуйте ещё раз.",
+                        copy.ERR_ORDER,
                         events_keyboard([]),
                     )
         if pending_order is not None:
@@ -138,7 +159,7 @@ def create_router(
                 response = CheckoutHandler.payment_response(pending_order, checkout)
             except (LookupError, PaymentStateError, ValueError):
                 response = BotResponse(
-                    "Заказ создан, но платёж не удалось запустить. Обратитесь в поддержку клуба.",
+                    copy.ERR_PAYMENT,
                     events_keyboard([]),
                 )
             finally:
@@ -157,13 +178,9 @@ def create_router(
             return
         factory = session_factory or get_session_factory()
         async with factory() as session, session.begin():
-            user = await UserRepository(session).by_telegram_id(query.from_user.id)
-            if user is None:
-                response = await handler(session).start(query.from_user, None)
-            elif query.data == "tickets:mine":
-                response = await TicketHandler(session).mine(user.id)
-            else:
-                response = BotResponse(SupportHandler().answer(), events_keyboard([]))
+            response = await personal_area_response(
+                session, query.from_user, "tickets" if query.data == "tickets:mine" else "support"
+            )
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
 
@@ -180,7 +197,7 @@ def create_router(
         factory = session_factory or get_session_factory()
         async with factory() as session, session.begin():
             if query.data == "events:menu":
-                response = await handler(session).start(query.from_user, None)
+                response = handler(session).menu(query.from_user.first_name)
             else:
                 user = await UserRepository(session).by_telegram_id(query.from_user.id)
                 response = await EventHandler(
@@ -190,6 +207,12 @@ def create_router(
                 ).read(query.data, user.id if user is not None else None)
         await query.answer()
         await query.message.answer(response.text, reply_markup=response.keyboard, parse_mode=None)
+
+    @router.message(F.chat.type == "private", ~F.text.startswith("/"))
+    async def unknown_text(message: Message) -> None:
+        name = message.from_user.first_name if message.from_user else None
+        menu = menu_response(name, app_url)
+        await message.answer(copy.UNKNOWN_TEXT, reply_markup=menu.keyboard)
 
     return router
 

@@ -56,3 +56,6 @@ async def test_telegram_checkout_creates_reservation_and_payment_link(db_session
     await TicketIssuer(db_session).issue_for_paid_order(order.id)
     tickets = await TicketHandler(db_session).mine(user.id)
     assert "QR-код:" in tickets.text
+    assert tickets.text.startswith("Твои билеты:")
+    assert "Действует" in tickets.text
+    assert [b.text for row in tickets.keyboard.inline_keyboard for b in row] == ["Меню"]

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     campaign_rate_limit_per_second: int = Field(default=25, gt=0)
     media_root: Path = Path("media")
     miniapp_url: str = ""
+    support_contact: str = ""
 
     @field_validator("database_url", "redis_url")
     @classmethod

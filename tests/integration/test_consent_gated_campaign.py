@@ -91,21 +91,26 @@ async def test_campaign_preview_and_delivery_require_current_marketing_consent(p
     assert sender.calls == [200]
 
 
-async def test_segment_excludes_blocked_and_unconsented_users(db_session):
-    first = await UserService(UserRepository(db_session)).upsert_telegram_user(
-        201, "Granted", None, None, None
-    )
-    await UserService(UserRepository(db_session)).upsert_telegram_user(
-        202, "Blocked", None, None, None
-    )
-    second_model = await UserRepository(db_session).by_telegram_id(202)
-    assert second_model is not None
-    second_model.is_blocked = True
-    await ConsentService(ConsentRepository(db_session)).record(
-        first.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM
-    )
+async def test_segment_excludes_blocked_and_stopped_users_but_not_silent_ones(db_session):
+    users = UserService(UserRepository(db_session))
+    consents = ConsentService(ConsentRepository(db_session))
+    silent = await users.upsert_telegram_user(201, "NoRecord", None, None, None)
+    granted = await users.upsert_telegram_user(202, "Granted", None, None, None)
+    stopped = await users.upsert_telegram_user(203, "Stopped", None, None, None)
+    await users.upsert_telegram_user(204, "Blocked", None, None, None)
+    blocked_model = await UserRepository(db_session).by_telegram_id(204)
+    assert blocked_model is not None
+    blocked_model.is_blocked = True
+    await consents.record(granted.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM)
+    await consents.record(stopped.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM)
+    await consents.revoke(stopped.id, ConsentType.MARKETING, ConsentSource.TELEGRAM)
     recipients = await SegmentService(db_session).resolve({})
-    assert [recipient.telegram_id for recipient in recipients] == [201]
+    assert sorted(r.telegram_id for r in recipients) == [201, 202]
+    assert silent.id in {r.user_id for r in recipients}
+    # /stop is not final: a later grant brings the user back.
+    await consents.record(stopped.id, ConsentType.MARKETING, "v1", ConsentSource.TELEGRAM)
+    again = await SegmentService(db_session).resolve({})
+    assert sorted(r.telegram_id for r in again) == [201, 202, 203]
 
 
 async def test_campaign_delivery_continues_with_later_batches(pg_factory):

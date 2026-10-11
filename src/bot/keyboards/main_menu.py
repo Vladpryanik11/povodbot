@@ -1,53 +1,28 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-from src.services.directions.service import DirectionDTO
+from src.bot import copy
 
 
-def main_menu(
-    directions: list[DirectionDTO],
-    marketing_active: bool,
-    marketing_version: str,
-    marketing_sequence: int,
-    miniapp_url: str = "",
-) -> InlineKeyboardMarkup:
+def open_app_button(miniapp_url: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text=copy.BTN_OPEN, web_app=WebAppInfo(url=miniapp_url))
+
+
+def main_menu(miniapp_url: str = "") -> InlineKeyboardMarkup:
     rows = []
     if miniapp_url:
-        rows.append(
-            [InlineKeyboardButton(text="Открыть Повод", web_app=WebAppInfo(url=miniapp_url))]
-        )
-    rows.extend(
-        [InlineKeyboardButton(text=d.name, callback_data=f"direction:{d.id}")] for d in directions
-    )
-    rows.extend(
+        rows.append([open_app_button(miniapp_url)])
+    rows.append(
         [
-            [InlineKeyboardButton(text="Мои билеты", callback_data="tickets:mine")],
-            [InlineKeyboardButton(text="Поддержка", callback_data="support")],
-            [
-                InlineKeyboardButton(
-                    text="Отписаться от рекламы" if marketing_active else "Настроить рекламу",
-                    callback_data=f"consent:marketing:{'revoke' if marketing_active else 'show'}:"
-                    f"{marketing_version}:{marketing_sequence}",
-                )
-            ],
+            InlineKeyboardButton(text=copy.BTN_TICKETS, callback_data="tickets:mine"),
+            InlineKeyboardButton(text=copy.BTN_SUPPORT, callback_data="support"),
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def consent_prompt(consent_type: str, version: str, sequence: int) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text="Согласен", callback_data=f"consent:{consent_type}:grant:{version}:{sequence}"
-            )
-        ]
-    ]
-    if consent_type == "marketing":
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text="Без рекламы", callback_data=f"consent:marketing:skip:{version}:{sequence}"
-                )
-            ]
-        )
+def back_to_menu(miniapp_url: str = "", with_open: bool = False) -> InlineKeyboardMarkup:
+    rows = []
+    if with_open and miniapp_url:
+        rows.append([open_app_button(miniapp_url)])
+    rows.append([InlineKeyboardButton(text=copy.BTN_MENU, callback_data="events:menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

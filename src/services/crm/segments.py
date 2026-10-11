@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.commerce import Order, OrderStatus
@@ -37,8 +37,10 @@ class SegmentService:
 
     def _eligible_statement(self, definition: dict[str, Any]) -> Any:
         latest_status = self._latest_marketing_status()
+        # No marketing record yet means "not opted out": everyone but /stop gets mail.
         statement = select(User).where(
-            User.is_blocked.is_(False), latest_status == ConsentStatus.GRANTED
+            User.is_blocked.is_(False),
+            or_(latest_status.is_(None), latest_status != ConsentStatus.REVOKED),
         )
         telegram_ids = definition.get("telegram_ids")
         if isinstance(telegram_ids, list) and telegram_ids:
