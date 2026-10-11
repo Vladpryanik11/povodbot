@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { DraftStore } from '../../owner/drafts';
 import { scenarioFromUrl } from '../mock/MockApi';
+import { HttpOwnerApi } from './HttpOwnerApi';
 import { MockOwnerApi, ownerRoleFromUrl } from './MockOwnerApi';
 import type { OwnerApi } from './OwnerApi';
 
@@ -13,10 +14,13 @@ const Context = createContext<OwnerContext | null>(null);
 
 let fallback: OwnerContext | null = null;
 
-/** Stage A always talks to the in-memory mock; stage B swaps in the HTTP client here. */
+/** Inside Telegram (signed initData present) talk to the real API; in a plain browser use the in-memory mock. */
 function getFallback(): OwnerContext {
+  const initData = window.Telegram?.WebApp?.initData;
   fallback ??= {
-    api: new MockOwnerApi({ role: ownerRoleFromUrl(), offline: scenarioFromUrl() === 'offline' }),
+    api: initData
+      ? new HttpOwnerApi(() => window.Telegram?.WebApp?.initData ?? '')
+      : new MockOwnerApi({ role: ownerRoleFromUrl(), offline: scenarioFromUrl() === 'offline' }),
     drafts: new DraftStore(),
   };
   return fallback;
