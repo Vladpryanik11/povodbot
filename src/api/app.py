@@ -10,6 +10,7 @@ from src.api.admin.events import router as admin_events_router
 from src.api.admin.payments import router as admin_payments_router
 from src.api.health import router
 from src.api.metrics import router as metrics_router
+from src.api.owner import router as owner_router
 from src.api.public.events import router as public_events_router
 from src.api.webhooks.tbank import router as tbank_webhook_router
 from src.core.config import get_settings
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_campaigns_router)
     app.include_router(admin_events_router)
     app.include_router(admin_payments_router)
+    app.include_router(owner_router)
     app.include_router(public_events_router)
     app.include_router(tbank_webhook_router)
     return app
