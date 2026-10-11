@@ -5,8 +5,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from scripts.create_admin import create_admin
 from scripts.link_admin_telegram import link_admin_telegram
-from src.models.admin import AdminUser
+from src.models.admin import AdminRole, AdminUser
 from src.models.events import Event
 from src.repositories.admin import AdminRepository
 
@@ -79,6 +80,22 @@ async def test_focus_and_accent_accept_valid_values(db_session):
     assert (event.cover_focus_x, event.cover_focus_y) == (0.25, 1.0)
     assert event.accent_color == "#A1b2C3"
     assert event.cover_width == 1080
+
+
+async def test_create_admin_hashes_password_and_links_telegram(db_session):
+    user = await create_admin(
+        db_session, " Owner ", "correct horse battery", AdminRole.OWNER, telegram_id=77
+    )
+
+    found = await AdminRepository(db_session).user_by_telegram_id(77)
+    assert found is not None
+    assert found.id == user.id
+    assert found.login == "owner"
+    assert found.role == "owner"
+    assert "correct horse battery" not in found.password_hash
+
+    with pytest.raises(ValueError):
+        await create_admin(db_session, "second", "short", AdminRole.ADMINISTRATOR)
 
 
 async def test_link_admin_telegram(db_session):

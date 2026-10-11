@@ -24,7 +24,7 @@ class QrTokenService:
             )
         self.secret = secret.get_secret_value() if isinstance(secret, SecretStr) else secret
         if not self.secret:
-            if get_settings().environment == "production":
+            if get_settings().hardened:
                 raise ValueError("TICKET_QR_SECRET is required in production")
             self.secret = hashlib.sha256(b"povod-development-qr-key").hexdigest()
 

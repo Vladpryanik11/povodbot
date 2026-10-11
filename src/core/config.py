@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
-    environment: Literal["development", "test", "production"] = "development"
+    environment: Literal["development", "test", "staging", "production"] = "development"
     database_url: str = Field(default="postgresql+asyncpg://localhost:5432/povod", repr=False)
     redis_url: str = Field(default="redis://localhost:6379/0", repr=False)
     telegram_token: SecretStr = SecretStr("")
@@ -55,8 +55,17 @@ class Settings(BaseSettings):
             ) from None
         return value
 
+    @property
+    def hardened(self) -> bool:
+        """Staging is a real server with real users: production-grade security, no payments."""
+        return self.environment in {"staging", "production"}
+
     @model_validator(mode="after")
     def require_production_secrets(self) -> "Settings":
+        if self.environment == "staging":
+            for name in ("telegram_token", "ticket_qr_secret"):
+                if not getattr(self, name).get_secret_value().strip():
+                    raise ValueError(f"{name} is required in staging")
         if self.environment == "production":
             for name in (
                 "telegram_token",

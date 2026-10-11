@@ -1,8 +1,10 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY pyproject.toml ./
+COPY pyproject.toml alembic.ini ./
 COPY src ./src
+COPY migrations ./migrations
+COPY scripts ./scripts
 RUN pip install --no-cache-dir . && useradd --create-home app && mkdir /app/media && chown app:app /app/media
 USER app
 EXPOSE 8000

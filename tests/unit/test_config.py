@@ -53,6 +53,38 @@ def test_production_accepts_explicit_secrets():
     )
 
 
+@pytest.mark.parametrize("field", ["telegram_token", "ticket_qr_secret"])
+def test_staging_requires_bot_token_and_qr_secret(field):
+    values = dict(environment="staging", telegram_token="fake-token", ticket_qr_secret="fake-qr")
+    values[field] = ""
+    with pytest.raises(ValidationError):
+        Settings(**values, _env_file=None)
+
+
+def test_staging_runs_without_payment_credentials_but_is_hardened():
+    settings = Settings(
+        environment="staging",
+        telegram_token="fake-token",
+        ticket_qr_secret="fake-qr",
+        _env_file=None,
+    )
+    assert settings.hardened
+    assert not Settings(environment="development", _env_file=None).hardened
+    assert Settings(
+        environment="production",
+        telegram_token="t",
+        tbank_terminal_key="k",
+        tbank_password="p",
+        tbank_webhook_secret="w",
+        ticket_qr_secret="q",
+        personal_consent_text="Approved",
+        personal_consent_version="v1",
+        marketing_consent_text="Approved",
+        marketing_consent_version="v1",
+        _env_file=None,
+    ).hardened
+
+
 def test_ttl_is_parsed_from_environment(monkeypatch):
     monkeypatch.setenv("RESERVATION_TTL_SECONDS", "900")
     assert Settings(_env_file=None).reservation_ttl_seconds == 900

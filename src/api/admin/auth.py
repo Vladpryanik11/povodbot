@@ -76,7 +76,7 @@ async def login(
         result.token,
         max_age=8 * 60 * 60,
         httponly=True,
-        secure=get_settings().environment == "production",
+        secure=get_settings().hardened,
         samesite="lax",
         path="/api/admin",
     )
