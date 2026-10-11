@@ -89,7 +89,7 @@ async def test_campaign_preview_and_delivery_require_current_marketing_consent(p
 
     # A second run is idempotent and does not send again.
     async with pg_factory() as session, session.begin():
-        assert await CampaignDeliveryWorker(session, sender).deliver(campaign.id) == 0
+        assert await CampaignDeliveryWorker(session).deliver(campaign.id) == 0
     assert sender.calls == [200]
 
 

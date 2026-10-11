@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,21 +12,11 @@ from src.models.outbox import Outbox
 from src.services.campaigns.launch import CampaignLauncher
 
 
-class TelegramSender(Protocol):
-    async def send_message(self, telegram_id: int, text: str) -> str | None: ...
-
-
 class CampaignDeliveryWorker:
-    """Stage campaign messages in the transactional outbox.
+    """Stage campaign messages in the transactional outbox; the outbox worker sends them."""
 
-    The sender argument remains accepted for compatibility with the first MVP
-    service API, but delivery is intentionally performed by the outbox worker
-    after this transaction commits.
-    """
-
-    def __init__(self, session: AsyncSession, sender: TelegramSender | None = None):
+    def __init__(self, session: AsyncSession):
         self.session = session
-        self.sender = sender
 
     async def deliver(
         self, campaign_id: UUID, batch_size: int = 100, now: datetime | None = None

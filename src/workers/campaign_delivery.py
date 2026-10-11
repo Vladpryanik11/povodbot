@@ -1,4 +1,4 @@
-from src.services.campaigns.delivery import CampaignDeliveryWorker, TelegramSender
+from src.services.campaigns.delivery import CampaignDeliveryWorker
 from src.workers.outbox import CampaignOutboxWorker
 
-__all__ = ["CampaignDeliveryWorker", "CampaignOutboxWorker", "TelegramSender"]
+__all__ = ["CampaignDeliveryWorker", "CampaignOutboxWorker"]
