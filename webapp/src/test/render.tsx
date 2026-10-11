@@ -3,6 +3,9 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { ApiProvider } from '../api/ApiProvider';
+import type { CampaignApi } from '../api/campaigns/CampaignApi';
+import { CampaignApiProvider } from '../api/campaigns/CampaignApiProvider';
+import { MockCampaignApi } from '../api/campaigns/MockCampaignApi';
 import type { AppApi } from '../api/AppApi';
 import { MockApi } from '../api/mock/MockApi';
 import { MockOwnerApi } from '../api/owner/MockOwnerApi';
@@ -21,6 +24,8 @@ export function Where() {
 interface Options {
   api?: AppApi;
   ownerApi?: OwnerApi;
+  /** null: broadcasts unavailable (inside Telegram until stage 3). */
+  campaignApi?: CampaignApi | null;
   tg?: TgFacade;
   /** Initial URL, e.g. '/events/e-film'. */
   at?: string;
@@ -32,6 +37,10 @@ interface Options {
 export function renderScreen(screen: ReactElement, options: Options = {}) {
   const api = options.api ?? new MockApi({ latencyMs: 0, now: () => T0 });
   const ownerApi = options.ownerApi ?? new MockOwnerApi({ latencyMs: 0, now: () => T0 });
+  const campaignApi =
+    options.campaignApi === undefined
+      ? new MockCampaignApi({ latencyMs: 0, now: () => T0 })
+      : options.campaignApi;
   const tg = options.tg ?? createTg();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const at = options.at ?? '/';
@@ -40,18 +49,20 @@ export function renderScreen(screen: ReactElement, options: Options = {}) {
       <TgProvider value={tg}>
         <ApiProvider api={api}>
           <OwnerApiProvider api={ownerApi}>
-            <MemoryRouter initialEntries={[at]}>
-              <Routes>
-                <Route path={options.path ?? at} element={screen} />
-                <Route path="*" element={null} />
-              </Routes>
-              <Where />
-              <BottomBar />
-            </MemoryRouter>
+            <CampaignApiProvider api={campaignApi}>
+              <MemoryRouter initialEntries={[at]}>
+                <Routes>
+                  <Route path={options.path ?? at} element={screen} />
+                  <Route path="*" element={null} />
+                </Routes>
+                <Where />
+                <BottomBar />
+              </MemoryRouter>
+            </CampaignApiProvider>
           </OwnerApiProvider>
         </ApiProvider>
       </TgProvider>
     </QueryClientProvider>,
   );
-  return { ...view, api, ownerApi, tg, client };
+  return { ...view, api, ownerApi, campaignApi, tg, client };
 }
