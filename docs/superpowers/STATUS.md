@@ -8,6 +8,7 @@
 - 107 тестов зелёные, `tsc` чистый, сборка ~100 kB gzip.
 - Запуск: `cd webapp && npm run dev`, сценарии через `?scenario=`: `happy`, `pay_fail`, `pay_pending`, `late`, `sold_out`, `empty`, `offline`.
 - Контракт данных для этапа Б: `webapp/src/api/AppApi.ts` и `webapp/src/api/types.ts`.
+- **Визуал v2 готов (2026-10-11):** план `plans/2026-10-11-povod-miniapp-visual-v2.md`, задачи 1–14 — чёрная тема и шрифты Wix Madefor, ореол цвета афиши, меню Дом · Избранное · Кабинет, пилюля «Сегодня», своя нижняя панель вместо MainButton, экран события v2, бумажный билет с перфорацией и веером, Кабинет, голос на «ты» (тест `src/copy.test.ts` ловит «вы»), reduced motion и `.no-blur`. 173 теста зелёные, `tsc` чистый, сборка ~106 kB gzip. Решения исполнителя — строки `Ruling:` в журнале `.superpowers/sdd/2026-10-11-povod-miniapp-visual-v2/progress.md` (git-ignored) и в итоговом сообщении сессии.
 
 ## Открытые вопросы владельцу
 
@@ -15,9 +16,15 @@
 
 ## Следующие шаги (на выбор владельца)
 
-1. **В работе — визуал v2.** Спека `specs/2026-10-11-povod-miniapp-visual-v2-design.md`, план `plans/2026-10-11-povod-miniapp-visual-v2.md`. Владелец выбрал нативное выполнение (`superpowers:executing-plans`), две сессии: задачи 1–8, затем 9–14. **Задачи 1–8 готовы (2026-10-11, 138 тестов зелёные):** токены и шрифты, цвет афиши, mock-данные, ореол, таб-бар, избранное, мелкие компоненты, Дом. Дальше — задачи 9–14 и финальное ревью ветки; журнал с решениями — `.superpowers/sdd/2026-10-11-povod-miniapp-visual-v2/progress.md` (git-ignored, строки `Ruling:`). Иконки меню владельца лежат в `webapp/src/ui/icons/`.
+1. Посмотреть визуал v2 в браузере (`cd webapp && npm run dev`) и решить судьбу ветки.
 2. Этап Б: настоящий API в бэкенде по контракту `AppApi`, авторизация по `initData`, оплата T-Bank. Начинать с `superpowers:brainstorming`.
 3. Отложенные минорные замечания (ниже) — одной волной.
+
+## Отложено на этап бэкенда (визуал v2)
+
+- Миграции: `events.accent_color` (nullable `#RRGGBB`), `users.show_in_attendees` (bool, default false) + `PATCH /me`.
+- `attendees: {count, avatars ≤ 3}` в `GET /events` и `GET /events/{id}` — аватары только согласившихся.
+- Возраст события (сейчас константа «18+») и время входа на билете (сейчас время начала).
 
 ## Отложенные минорные замечания (финальное ревью)
 
