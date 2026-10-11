@@ -29,7 +29,7 @@ describe('Claim screen', () => {
     const { shareUrl } = await api.shareTicket('tk-2');
     const token = new URL(shareUrl).searchParams.get('startapp')!.replace('claim_', '');
     const first = renderScreen(<ClaimScreen />, { api, at: `/claim/${token}`, path: '/claim/:token' });
-    expect(await screen.findByText('Билет ваш')).toBeInTheDocument();
+    expect(await screen.findByText('Билет твой')).toBeInTheDocument();
     first.unmount();
     renderScreen(<ClaimScreen />, { api, at: `/claim/${token}`, path: '/claim/:token' });
     expect(await screen.findByText('Этот билет уже забрал другой гость')).toBeInTheDocument();

@@ -16,7 +16,7 @@ export function EmptyState({ title, text, icon: Icon, action }: EmptyStateProps)
       <h2 className={styles.title}>{title}</h2>
       <p className={styles.text}>{text}</p>
       {action ? (
-        <Button variant="outline" onClick={action.onClick}>
+        <Button variant="secondary" onClick={action.onClick}>
           {action.label}
         </Button>
       ) : null}

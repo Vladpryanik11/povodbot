@@ -55,8 +55,8 @@ export function ClaimScreen() {
     return (
       <EmptyState
         icon={Gift}
-        title="Билет ваш"
-        text={`${result.ticket.eventTitle}, ${formatDateTime(result.ticket.startsAt, result.ticket.timezone)}. Он уже во вкладке «Билеты».`}
+        title="Билет твой"
+        text={`${result.ticket.eventTitle}, ${formatDateTime(result.ticket.startsAt, result.ticket.timezone)}. Он уже в кабинете.`}
       />
     );
   }
@@ -65,8 +65,8 @@ export function ClaimScreen() {
       <EmptyState
         icon={Link2Off}
         title="Этот билет уже забрал другой гость"
-        text="Попросите отправителя прислать новую ссылку."
-        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+        text="Попроси отправителя прислать новую ссылку."
+        action={{ label: 'На главную', onClick: () => navigate('/', { replace: true }) }}
       />
     );
   }
@@ -76,11 +76,11 @@ export function ClaimScreen() {
         icon={Link2Off}
         title="Ссылка не работает"
         text="Возможно, отправитель её отозвал."
-        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+        action={{ label: 'На главную', onClick: () => navigate('/', { replace: true }) }}
       />
     );
   }
   return (
-    <ErrorState title="Нет связи" text="Проверьте интернет и попробуйте ещё раз." actionLabel="Повторить" onAction={claim} />
+    <ErrorState title="Нет связи" text="Проверь интернет и попробуй ещё раз." actionLabel="Повторить" onAction={claim} />
   );
 }

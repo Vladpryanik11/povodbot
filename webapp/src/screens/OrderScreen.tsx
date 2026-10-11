@@ -14,7 +14,9 @@ import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
+import { useGlow } from '../ui/Glow';
 import { Skeleton } from '../ui/Skeleton';
+import { useEventColor } from '../ui/useEventColor';
 import styles from './OrderScreen.module.css';
 
 type View = 'waiting' | 'bank' | 'bankSlow' | 'paid' | 'failed' | 'expired' | 'cancelled' | 'late';
@@ -70,6 +72,12 @@ export function OrderScreen() {
     },
   });
 
+  const eventId = order.data?.eventId;
+  const event = useQuery({ queryKey: ['event', eventId], queryFn: () => api.event(eventId!), enabled: Boolean(eventId) });
+  // Black screen with the glow of the evening's poster (spec v2 §5); the title colour until the event loads.
+  const color = useEventColor(event.data ?? (order.data ? { title: order.data.eventTitle, accentColor: null, poster: null } : null));
+  useGlow(color);
+
   const view = order.data ? viewOf(order.data, now, mountedAt) : null;
   const live = view === 'waiting' || view === 'bank' || view === 'bankSlow' || view === 'failed';
 
@@ -91,7 +99,7 @@ export function OrderScreen() {
     // Only the change of view matters here, not every tick of the clock.
   }, [view]);
 
-  useBackButton(() => navigate(live ? '/' : '/tickets'));
+  useBackButton(() => navigate(live ? '/' : '/me'));
 
   const data = order.data;
   const reopen = () => data && tg.openLink(data.paymentUrl);
@@ -103,11 +111,11 @@ export function OrderScreen() {
         : view === 'failed'
           ? { text: 'Попробовать снова', enabled: true, progress: false, onClick: reopen }
           : view === 'paid'
-            ? { text: 'Показать билеты', enabled: true, progress: false, onClick: () => navigate('/tickets', { replace: true }) }
+            ? { text: 'Показать билеты', enabled: true, progress: false, onClick: () => navigate('/me', { replace: true }) }
             : view === 'expired' || view === 'cancelled'
               ? { text: 'Выбрать заново', enabled: true, progress: false, onClick: () => navigate(`/events/${data.eventId}`, { replace: true }) }
               : view === 'bankSlow' || view === 'late'
-                ? { text: 'К афише', enabled: true, progress: false, onClick: () => navigate('/', { replace: true }) }
+                ? { text: 'На главную', enabled: true, progress: false, onClick: () => navigate('/', { replace: true }) }
                 : null,
   );
 
@@ -115,8 +123,8 @@ export function OrderScreen() {
     return (
       <EmptyState
         title="Заказ не найден"
-        text="Возможно, ссылка устарела. Билеты, если они есть, — во вкладке «Билеты»."
-        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+        text="Возможно, ссылка устарела. Билеты, если они есть, — в кабинете."
+        action={{ label: 'На главную', onClick: () => navigate('/', { replace: true }) }}
       />
     );
   }
@@ -124,7 +132,7 @@ export function OrderScreen() {
     return (
       <ErrorState
         title="Нет связи"
-        text="Проверьте интернет. Оплаченные билеты никуда не денутся."
+        text="Проверь интернет. Купленные билеты никуда не денутся."
         actionLabel="Повторить"
         onAction={() => void order.refetch()}
       />
@@ -153,7 +161,7 @@ export function OrderScreen() {
       setCancelError(
         error instanceof ApiError && error.code === 'payment_uncertain'
           ? 'Банк ещё не ответил — отменить бронь пока нельзя.'
-          : 'Не получилось отменить бронь. Проверьте интернет и попробуйте ещё раз.',
+          : 'Не получилось отменить бронь. Проверь интернет и попробуй ещё раз.',
       );
       return;
     }
@@ -168,12 +176,12 @@ export function OrderScreen() {
       {view === 'waiting' ? (
         <Status icon={Hourglass} tone="accent" title="Бронь ждёт оплаты">
           <p className={styles.timerLine}>
-            Места за вами ещё{' '}
+            Места за тобой ещё{' '}
             <span role="timer" className={`t-price ${styles.timer}`}>
               {formatLeft(msLeft)}
             </span>
           </p>
-          <p className={styles.hint}>до {deadline}. Пока идёт таймер, места держим за вами.</p>
+          <p className={styles.hint}>до {deadline}. Пока идёт таймер, места держим за тобой.</p>
           <span className="sr-only" aria-live="polite">
             {ANNOUNCE_AT_MINUTES.has(minutesLeft) ? `Осталось ${minutesLeft} ${plural(minutesLeft, ['минута', 'минуты', 'минут'])}` : ''}
           </span>
@@ -185,25 +193,25 @@ export function OrderScreen() {
         </Status>
       ) : null}
       {view === 'bankSlow' ? (
-        <Status icon={Landmark} tone="muted" title="Банк отвечает дольше обычного">
-          <p className={styles.text}>Если оплата прошла, билет придёт сообщением в бот. Страницу можно закрыть.</p>
+        <Status icon={Landmark} tone="muted" title="Банк что-то задумался">
+          <p className={styles.text}>Если оплата прошла, билет прилетит в бот. Страницу можно закрыть.</p>
         </Status>
       ) : null}
       {view === 'paid' ? (
-        <Status icon={CircleCheck} tone="success" title="Билеты у вас">
-          <p className={styles.text}>Ждём в {when}. Копия ушла в бот.</p>
+        <Status icon={CircleCheck} tone="success" title="Ты в деле!">
+          <p className={styles.text}>Ждём в {when}. Копия билета уже в боте.</p>
         </Status>
       ) : null}
       {view === 'failed' ? (
         <Status icon={TriangleAlert} tone="error" title="Оплата не прошла">
           <p className={styles.text}>
-            Деньги не списаны. Бронь ещё держим — {minutesLeft} {plural(minutesLeft, ['минуту', 'минуты', 'минут'])}.
+            Деньги не списаны. Бронь держим ещё {minutesLeft} {plural(minutesLeft, ['минуту', 'минуты', 'минут'])}.
           </p>
         </Status>
       ) : null}
       {view === 'expired' ? (
         <Status icon={TimerOff} tone="muted" title="Бронь закончилась">
-          <p className={styles.text}>Десять минут прошли, места вернулись в продажу.</p>
+          <p className={styles.text}>Десять минут прошли — места вернулись в продажу.</p>
         </Status>
       ) : null}
       {view === 'cancelled' ? (
@@ -213,7 +221,7 @@ export function OrderScreen() {
       ) : null}
       {view === 'late' ? (
         <Status icon={Landmark} tone="muted" title="Проверяем оплату">
-          <p className={styles.text}>Оплата дошла после окончания брони. Администратор проверит и напишет вам сегодня.</p>
+          <p className={styles.text}>Оплата дошла после окончания брони. Администратор проверит и напишет тебе сегодня.</p>
         </Status>
       ) : null}
 

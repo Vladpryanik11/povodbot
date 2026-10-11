@@ -49,16 +49,16 @@ export function PollCard({ poll, onVote, closedNow = false, busy = false, failed
       </ul>
       {failed ? (
         <p className={styles.error} role="alert">
-          Не получилось проголосовать. Попробуйте ещё раз.
+          Не получилось проголосовать. Попробуй ещё раз.
         </p>
       ) : null}
       {closedNow && !poll.closed ? (
         <p className={styles.note} role="status">
           <strong>Голосование уже закрыто</strong>
-          {mine ? <span>{` Ваш голос остался прежним: «${mine.title}».`}</span> : null}
+          {mine ? <span>{` Твой голос остался прежним: «${mine.title}».`}</span> : null}
         </p>
       ) : !closed && mine ? (
-        <p className={styles.note}>Ваш голос учтён. Можно передумать до {deadline}</p>
+        <p className={styles.note}>Твой голос учтён. Можно передумать до {deadline}</p>
       ) : null}
     </section>
   );

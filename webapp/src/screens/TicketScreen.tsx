@@ -116,13 +116,13 @@ export function TicketScreen() {
 
       <div className={styles.actions}>
         {ticket.mapUrl ? (
-          <Button variant="outline" wide onClick={() => tg.openLink(ticket.mapUrl!)}>
+          <Button variant="secondary" wide onClick={() => tg.openLink(ticket.mapUrl!)}>
             <MapPin size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
             Построить маршрут
           </Button>
         ) : null}
         {valid && !fromCache ? (
-          <Button variant="outline" wide onClick={() => void share()}>
+          <Button variant="secondary" wide onClick={() => void share()}>
             <Send size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
             Отправить другу
           </Button>

@@ -43,6 +43,10 @@ describe('App start', () => {
     const first = renderApp(api, tgWithStart('event_e-film'));
 
     expect(await screen.findByText('Привет, это «Повод»')).toBeInTheDocument();
+    expect(
+      screen.getByText('Маленький клуб в Москве: киновечера, мастерклассы и книжный клуб для своих. Выбирай вечер, бери билет — и увидимся.'),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Амели на большом экране')).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: 'Заходим' }));
     expect(accept).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('/events/e-film', { selector: 'output' })).toBeInTheDocument();
@@ -93,6 +97,6 @@ describe('App resilience', () => {
     vi.spyOn(api, 'acceptWelcome').mockRejectedValue(new Error('offline'));
     renderApp(api, tgWithStart(null));
     await userEvent.click(await screen.findByRole('button', { name: 'Заходим' }));
-    expect(await screen.findByText('Не получилось. Проверьте интернет и попробуйте ещё раз.')).toBeInTheDocument();
+    expect(await screen.findByText('Не получилось. Проверь интернет и попробуй ещё раз.')).toBeInTheDocument();
   });
 });

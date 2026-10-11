@@ -93,7 +93,7 @@ describe('EventScreen', () => {
     await screen.findByRole('heading', { name: 'Амели на большом экране' });
     await add();
     await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
-    expect(await screen.findByRole('dialog', { name: 'У вас уже есть бронь' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'У тебя уже есть бронь' })).toBeInTheDocument();
     expect(screen.getByText('Бронь на «Лепим чашку из глины» ждёт оплаты. Продолжить оплату или отменить?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
     expect(await screen.findByText('/order/o-1', { selector: 'output' })).toBeInTheDocument();
@@ -112,9 +112,9 @@ describe('EventScreen', () => {
     await add();
     await userEvent.click(await screen.findByRole('button', { name: 'Купить' }));
     expect(await screen.findByRole('dialog', { name: 'Мест стало меньше' })).toBeInTheDocument();
-    expect(screen.getByText('Пока вы выбирали, осталось 2 места. Взять 2 билета?')).toBeInTheDocument();
+    expect(screen.getByText('Пока шёл выбор, осталось 2 места. Берём 2?')).toBeInTheDocument();
     expect(notify).toHaveBeenCalledWith('warning');
-    await act(() => userEvent.click(screen.getByRole('button', { name: 'Взять 2' })));
+    await act(() => userEvent.click(screen.getByRole('button', { name: 'Берём 2' })));
     expect(await screen.findByText('/order/o-1', { selector: 'output' })).toBeInTheDocument();
     expect(createOrder).toHaveBeenLastCalledWith('e-film', [{ ticketTypeId: 'tt-film', qty: 2 }]);
   });
@@ -141,7 +141,7 @@ describe('EventScreen edge cases', () => {
     renderScreen(<EventScreen />, at('e-gone'));
     expect(await screen.findByText('Вечер не найден')).toBeInTheDocument();
     expect(screen.queryByText('Нет связи')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'К афише' }));
+    await userEvent.click(screen.getByRole('button', { name: 'На главную' }));
     expect(await screen.findByText('/', { selector: 'output' })).toBeInTheDocument();
   });
 });

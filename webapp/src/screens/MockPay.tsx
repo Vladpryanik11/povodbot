@@ -35,7 +35,7 @@ export function MockPay() {
         <Button wide loading={busy} onClick={() => void decide('paid')} disabled={!mock}>
           Оплатить
         </Button>
-        <Button wide variant="outline" onClick={() => void decide('failed')} disabled={!mock || busy}>
+        <Button wide variant="secondary" onClick={() => void decide('failed')} disabled={!mock || busy}>
           Отказаться
         </Button>
       </div>

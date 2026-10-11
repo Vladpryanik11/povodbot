@@ -35,7 +35,7 @@ export function Dialog({ title, text, confirmLabel, cancelLabel, onConfirm, onCa
           <Button wide onClick={onConfirm}>
             {confirmLabel}
           </Button>
-          <Button wide variant="outline" onClick={onCancel}>
+          <Button wide variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </Button>
         </div>

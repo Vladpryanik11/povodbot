@@ -24,7 +24,7 @@ describe('Polls', () => {
     expect(vote).toHaveBeenCalledWith('p-film', 'po-amelie');
     expect(selection).toHaveBeenCalled();
     expect(await within(card).findByText('60%')).toBeInTheDocument();
-    expect(within(card).getByText('Ваш голос учтён. Можно передумать до пт, 16 окт, 18:00')).toBeInTheDocument();
+    expect(within(card).getByText('Твой голос учтён. Можно передумать до пт, 16 окт, 18:00')).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: /Амели/ })).toHaveAttribute('aria-pressed', 'true');
 
     await userEvent.click(within(card).getByRole('button', { name: /Ла-Ла Ленд/ }));
@@ -66,6 +66,6 @@ describe('Polls errors', () => {
     renderScreen(<Polls />, { at: '/polls', api });
     const card = await activeCard();
     await userEvent.click(within(card).getByRole('button', { name: /Амели/ }));
-    expect(await within(card).findByText('Не получилось проголосовать. Попробуйте ещё раз.')).toBeInTheDocument();
+    expect(await within(card).findByText('Не получилось проголосовать. Попробуй ещё раз.')).toBeInTheDocument();
   });
 });

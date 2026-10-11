@@ -45,7 +45,7 @@ describe('OrderScreen while the reservation waits', () => {
     open(ctx);
     expect(await screen.findByText('Бронь ждёт оплаты')).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('08:42');
-    expect(screen.getByText(/Места за вами ещё/)).toBeInTheDocument();
+    expect(screen.getByText(/Места за тобой ещё/)).toBeInTheDocument();
 
     await user().click(await screen.findByRole('button', { name: 'Открыть оплату снова' }));
     expect(ctx.openLink).toHaveBeenCalledWith(ctx.order.paymentUrl);
@@ -64,7 +64,7 @@ describe('OrderScreen while the reservation waits', () => {
     await screen.findByText('Бронь ждёт оплаты');
     await advance(10 * 60 * 1000 + 1000);
     expect(await screen.findByText('Бронь закончилась')).toBeInTheDocument();
-    expect(screen.getByText('Десять минут прошли, места вернулись в продажу.')).toBeInTheDocument();
+    expect(screen.getByText('Десять минут прошли — места вернулись в продажу.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Выбрать заново' })).toBeInTheDocument();
     expect(ctx.haptic).toHaveBeenCalledWith('warning');
   });
@@ -84,19 +84,20 @@ describe('OrderScreen after the bank', () => {
   it('celebrates a paid order and leads to the tickets', async () => {
     const ctx = await setup('happy', 'paid');
     open(ctx);
-    expect(await screen.findByText('Билеты у вас')).toBeInTheDocument();
-    expect(screen.getByText('Ждём в сб, 10 окт в 23:00. Копия ушла в бот.')).toBeInTheDocument();
+    expect(await screen.findByText('Ты в деле!')).toBeInTheDocument();
+    expect(screen.getByText('Ждём в сб, 10 окт в 23:00. Копия билета уже в боте.')).toBeInTheDocument();
+    expect(document.documentElement.style.getPropertyValue('--poster')).toMatch(/^#[0-9a-f]{6}$/i);
     expect(ctx.haptic).toHaveBeenCalledWith('success');
     expect(ctx.closing).toHaveBeenLastCalledWith(false);
     act(() => lastBack(ctx.back)());
-    expect(await screen.findByText('/tickets', { selector: 'output' })).toBeInTheDocument();
+    expect(await screen.findByText('/me', { selector: 'output' })).toBeInTheDocument();
   });
 
   it('opens the tickets from the main button', async () => {
     const ctx = await setup('happy', 'paid');
     open(ctx);
     await user().click(await screen.findByRole('button', { name: 'Показать билеты' }));
-    expect(await screen.findByText('/tickets', { selector: 'output' })).toBeInTheDocument();
+    expect(await screen.findByText('/me', { selector: 'output' })).toBeInTheDocument();
   });
 
   it('waits for an uncertain bank without offering to cancel, then explains the delay', async () => {
@@ -106,9 +107,9 @@ describe('OrderScreen after the bank', () => {
     expect(screen.getByText('Обычно хватает минуты. Повторно платить не нужно.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отменить бронь' })).toBeNull();
     await advance(61_000);
-    expect(await screen.findByText('Банк отвечает дольше обычного')).toBeInTheDocument();
+    expect(await screen.findByText('Банк что-то задумался')).toBeInTheDocument();
     expect(
-      screen.getByText('Если оплата прошла, билет придёт сообщением в бот. Страницу можно закрыть.'),
+      screen.getByText('Если оплата прошла, билет прилетит в бот. Страницу можно закрыть.'),
     ).toBeInTheDocument();
   });
 
@@ -117,7 +118,7 @@ describe('OrderScreen after the bank', () => {
     vi.setSystemTime(T0 + 4 * 60 * 1000);
     open(ctx);
     expect(await screen.findByText('Оплата не прошла')).toBeInTheDocument();
-    expect(screen.getByText('Деньги не списаны. Бронь ещё держим — 6 минут.')).toBeInTheDocument();
+    expect(screen.getByText('Деньги не списаны. Бронь держим ещё 6 минут.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Попробовать снова' })).toBeInTheDocument();
     expect(ctx.haptic).toHaveBeenCalledWith('error');
   });
@@ -126,7 +127,7 @@ describe('OrderScreen after the bank', () => {
     const ctx = await setup('late', 'paid');
     open(ctx);
     expect(
-      await screen.findByText('Оплата дошла после окончания брони. Администратор проверит и напишет вам сегодня.'),
+      await screen.findByText('Оплата дошла после окончания брони. Администратор проверит и напишет тебе сегодня.'),
     ).toBeInTheDocument();
   });
 });
@@ -135,7 +136,7 @@ describe('OrderScreen review fixes', () => {
   it('saves the new tickets on the phone as soon as the order is paid', async () => {
     const ctx = await setup('happy', 'paid');
     open(ctx);
-    await screen.findByText('Билеты у вас');
+    await screen.findByText('Ты в деле!');
     await advance(100);
     expect(ticketCache.load().filter((t) => t.id.startsWith(`${ctx.order.id}-`))).toHaveLength(2);
   });
@@ -146,7 +147,7 @@ describe('OrderScreen review fixes', () => {
     await screen.findByText('Оплата не прошла');
     await ctx.api.completePayment(ctx.order.id, 'paid');
     await advance(3500);
-    expect(await screen.findByText('Билеты у вас')).toBeInTheDocument();
+    expect(await screen.findByText('Ты в деле!')).toBeInTheDocument();
   });
 
   it('says when cancelling the reservation did not work', async () => {
@@ -156,7 +157,7 @@ describe('OrderScreen review fixes', () => {
     await user().click(await screen.findByRole('button', { name: 'Отменить бронь' }));
     await user().click(screen.getByRole('button', { name: 'Отменить' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Не получилось отменить бронь. Проверьте интернет и попробуйте ещё раз.',
+      'Не получилось отменить бронь. Проверь интернет и попробуй ещё раз.',
     );
   });
 

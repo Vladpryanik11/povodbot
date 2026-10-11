@@ -97,8 +97,8 @@ export function EventScreen() {
     return (
       <EmptyState
         title="Вечер не найден"
-        text="Возможно, он уже прошёл. Загляните в афишу — там есть другие вечера."
-        action={{ label: 'К афише', onClick: () => navigate('/', { replace: true }) }}
+        text="Возможно, он уже прошёл. Загляни на главную — там есть другие вечера."
+        action={{ label: 'На главную', onClick: () => navigate('/', { replace: true }) }}
       />
     );
   }
@@ -106,7 +106,7 @@ export function EventScreen() {
     return (
       <ErrorState
         title="Нет связи"
-        text="Проверьте интернет и попробуйте ещё раз."
+        text="Проверь интернет и попробуй ещё раз."
         actionLabel="Повторить"
         onAction={() => void event.refetch()}
       />
@@ -189,7 +189,7 @@ export function EventScreen() {
 
       {problem?.kind === 'active' ? (
         <Dialog
-          title="У вас уже есть бронь"
+          title="У тебя уже есть бронь"
           text={`Бронь на «${problem.eventTitle}» ждёт оплаты. Продолжить оплату или отменить?`}
           confirmLabel="Продолжить"
           cancelLabel="Не сейчас"
@@ -205,7 +205,7 @@ export function EventScreen() {
       {problem?.kind === 'network' ? (
         <Dialog
           title="Нет связи"
-          text="Проверьте интернет. Места пока никто не забронировал."
+          text="Проверь интернет. Места пока никто не забронировал."
           confirmLabel="Повторить"
           cancelLabel="Закрыть"
           onConfirm={() => {
@@ -239,8 +239,8 @@ function SeatsDialog({
     return (
       <Dialog
         title="Мест не осталось"
-        text="Пока вы выбирали, места закончились. Загляните в афишу — там есть другие вечера."
-        confirmLabel="К афише"
+        text="Пока шёл выбор, места закончились. Загляни на главную — там есть другие вечера."
+        confirmLabel="На главную"
         cancelLabel="Закрыть"
         onConfirm={onAfisha}
         onCancel={onClose}
@@ -250,8 +250,8 @@ function SeatsDialog({
   return (
     <Dialog
       title="Мест стало меньше"
-      text={`Пока вы выбирали, ${seatsLabel(left)}. Взять ${ticketsLabel(left)}?`}
-      confirmLabel={`Взять ${left}`}
+      text={`Пока шёл выбор, ${seatsLabel(left)}. Берём ${left}?`}
+      confirmLabel={`Берём ${left}`}
       cancelLabel="Изменить"
       onConfirm={() => onTake(fitCart(cart, event.ticketTypes, left))}
       onCancel={onClose}

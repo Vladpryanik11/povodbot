@@ -17,7 +17,7 @@ export function Polls() {
     return (
       <ErrorState
         title="Нет связи"
-        text="Проверьте интернет и попробуйте ещё раз."
+        text="Проверь интернет и попробуй ещё раз."
         actionLabel="Повторить"
         onAction={() => void polls.refetch()}
       />

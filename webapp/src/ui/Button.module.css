@@ -6,16 +6,16 @@
   gap: var(--s-8);
   min-height: var(--tap);
   padding: 0 var(--s-20);
-  border-radius: var(--r-16);
+  border-radius: var(--r-pill);
   border: 1px solid transparent;
-  font: 700 1rem/1.25rem var(--font-body);
+  font: 500 1rem/1.25rem var(--font-body);
   cursor: pointer;
   transition: transform 120ms ease, background-color 120ms ease;
 }
 .button:active:not(:disabled) { transform: scale(0.98); }
 .primary { background: var(--btn-primary); color: var(--on-btn-primary); }
 .primary:active:not(:disabled) { background: #e6e6e6; }
-.outline { background: transparent; color: var(--text-1); border-color: var(--text-3); }
+.secondary { color: var(--text-1); }
 .link { background: none; color: var(--text-1); min-height: var(--tap); padding: 0 var(--s-8); font-weight: 500; }
 .button:disabled { background: var(--surface-3); color: var(--text-2); border-color: transparent; cursor: default; }
 .wide { width: 100%; }

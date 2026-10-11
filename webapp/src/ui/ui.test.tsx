@@ -75,6 +75,21 @@ describe('Button', () => {
     expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button).toHaveTextContent('Оплатить 3 100 ₽');
   });
+
+  it('has a white primary, a glass secondary and a link variant', () => {
+    render(
+      <>
+        <Button>Купить</Button>
+        <Button variant="secondary">Изменить</Button>
+        <Button variant="link">Отменить бронь</Button>
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Купить' }).className).toMatch(/primary/);
+    const secondary = screen.getByRole('button', { name: 'Изменить' });
+    expect(secondary.className).toMatch(/secondary/);
+    expect(secondary).toHaveClass('glass');
+    expect(screen.getByRole('button', { name: 'Отменить бронь' }).className).toMatch(/link/);
+  });
 });
 
 describe('BottomBar', () => {

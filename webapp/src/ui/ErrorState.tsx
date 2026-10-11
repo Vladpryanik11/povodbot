@@ -15,7 +15,7 @@ export function ErrorState({ title, text, actionLabel, onAction }: ErrorStatePro
       <TriangleAlert className={styles.icon} size={40} strokeWidth={1.5} aria-hidden="true" />
       <h2 className={styles.title}>{title}</h2>
       <p className={styles.text}>{text}</p>
-      <Button variant="outline" onClick={onAction}>
+      <Button variant="secondary" onClick={onAction}>
         {actionLabel}
       </Button>
     </section>
