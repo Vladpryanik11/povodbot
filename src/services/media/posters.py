@@ -107,6 +107,7 @@ def _write_atomic(path: Path, content: bytes) -> None:
     try:
         with os.fdopen(descriptor, "wb") as file:
             file.write(content)
+        os.chmod(temp_name, 0o644)
         os.replace(temp_name, path)
     except BaseException:
         Path(temp_name).unlink(missing_ok=True)

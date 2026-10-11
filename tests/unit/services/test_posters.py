@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from pathlib import Path
 
@@ -116,3 +117,11 @@ def test_same_photo_same_key(tmp_path: Path) -> None:
     assert first == second
     assert len(_variants(tmp_path)) == 3
     assert [path.name for path in (tmp_path / "posters").iterdir() if path.suffix != ".webp"] == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_stored_files_readable_by_file_server(tmp_path: Path) -> None:
+    store_poster(_encode((1200, 1500), "JPEG"), tmp_path)
+
+    for path in _variants(tmp_path):
+        assert path.stat().st_mode & 0o044 == 0o044
