@@ -1,0 +1,11 @@
+.page { padding: var(--s-16); display: grid; gap: var(--s-16); }
+.head { display: grid; justify-items: start; gap: var(--s-8); margin-top: var(--s-8); }
+.title { margin: 0; }
+.dates { margin: 0; padding: 0; list-style: none; color: var(--text-2); font: 500 0.875rem/1.125rem var(--font-body); }
+.stats { margin: 0; padding: var(--s-12) var(--s-16); border-radius: var(--r-16); display: grid; gap: var(--s-8); }
+.stat { display: flex; justify-content: space-between; gap: var(--s-12); margin: 0; }
+.stat dt { color: var(--text-2); }
+.stat dd { margin: 0; color: var(--text-1); font-weight: 600; }
+.reasons { margin: 0; padding: 0 0 0 var(--s-16); list-style: none; color: var(--text-2); font: 500 0.875rem/1.25rem var(--font-body); }
+.note { margin: 0; color: var(--text-2); }
+.actions { display: grid; gap: var(--s-8); }
