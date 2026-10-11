@@ -1,0 +1,95 @@
+/* One column that scrolls; room at the bottom for the page bottom bar. */
+.page {
+  padding: var(--s-16) var(--s-16) calc(var(--s-40) + 64px + env(safe-area-inset-bottom));
+}
+.title {
+  margin: var(--s-8) 0 var(--s-20);
+  overflow-wrap: anywhere;
+}
+.banner {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-12);
+  margin-bottom: var(--s-20);
+  padding: var(--s-16);
+  border-radius: var(--r-16);
+  color: var(--text-1);
+  font: 400 0.9375rem/1.375rem var(--font-body);
+}
+.banner p { margin: 0; }
+.fields {
+  display: grid;
+  gap: var(--s-20);
+}
+.field {
+  display: grid;
+  gap: var(--s-8);
+  min-width: 0;
+}
+.label {
+  padding: 0;
+  color: var(--text-2);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--s-16);
+  border: 1px solid transparent;
+  border-radius: var(--r-12);
+  background: var(--surface-2);
+  color: var(--text-1);
+  color-scheme: dark;
+  font: 400 1rem/1.25rem var(--font-body);
+}
+.input:focus-visible {
+  outline: none;
+  border-color: var(--text-3);
+}
+.input[aria-invalid='true'] { border-color: var(--error); }
+textarea.input {
+  min-height: 120px;
+  padding: var(--s-12) var(--s-16);
+  resize: vertical;
+}
+.color {
+  width: 72px;
+  padding: var(--s-4);
+}
+.error {
+  margin: 0;
+  color: var(--error);
+  font: 500 0.875rem/1.125rem var(--font-body);
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-12);
+}
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  min-height: 48px;
+  color: var(--text-1);
+  font: 500 1rem/1.25rem var(--font-body);
+}
+.tickets {
+  display: grid;
+  gap: var(--s-12);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.tickets > legend { margin-bottom: var(--s-8); }
+.ticket {
+  display: grid;
+  gap: var(--s-12);
+  padding: var(--s-16);
+  border-radius: var(--r-16);
+}
+.remove { justify-self: start; }

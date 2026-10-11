@@ -5,7 +5,6 @@ import { MSG } from '../../api/owner/messages';
 import { MockOwnerApi } from '../../api/owner/MockOwnerApi';
 import { buildOwnerFixtures, LEGACY_POSTER_URL } from '../../api/owner/ownerFixtures';
 import { renderScreen, T0 } from '../../test/render';
-import { OwnerEvents } from './OwnerEvents';
 import { OwnerRoutes } from './OwnerRoutes';
 
 const renderList = (options: Parameters<typeof renderScreen>[1] = {}) =>
@@ -36,7 +35,7 @@ describe('OwnerEvents', () => {
   });
 
   it('starts a new evening from the bottom bar', async () => {
-    renderScreen(<OwnerEvents />, { at: '/owner', path: '/owner' });
+    renderList();
     await userEvent.click(await screen.findByRole('button', { name: /Новый вечер/ }));
     expect(screen.getByTestId('where')).toHaveTextContent('/owner/events/new');
   });
