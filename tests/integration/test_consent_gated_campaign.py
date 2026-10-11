@@ -13,6 +13,8 @@ from src.repositories.users import UserRepository
 from src.services.admin.auth import AdminAuthService
 from src.services.campaigns.composer import CampaignService
 from src.services.campaigns.delivery import CampaignDeliveryWorker
+from src.services.campaigns.render import RenderedMessage
+from src.services.campaigns.telegram import SentMessage
 from src.services.consents.service import ConsentService
 from src.services.crm.segments import SegmentService
 from src.services.users.service import UserService
@@ -23,9 +25,9 @@ from src.workers.outbox import CampaignOutboxWorker
 class Sender:
     calls: list[int]
 
-    async def send_message(self, telegram_id: int, text: str) -> str:
+    async def send(self, telegram_id: int, message: RenderedMessage) -> SentMessage:
         self.calls.append(telegram_id)
-        return "message-1"
+        return SentMessage(message_id="message-1", photo_file_id=None)
 
 
 async def test_campaign_draft_schedule_requires_future_aware_utc(db_session):

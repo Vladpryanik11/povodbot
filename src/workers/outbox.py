@@ -8,10 +8,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.models.campaigns import Campaign, CampaignDelivery, CampaignStatus, DeliveryStatus
+from src.core.config import Settings, get_settings
+from src.models.campaigns import (
+    Campaign,
+    CampaignDelivery,
+    CampaignLink,
+    CampaignStatus,
+    DeliveryStatus,
+)
+from src.models.events import Event
 from src.models.outbox import Outbox
 from src.models.payments import Payment
 from src.repositories.payments import PaymentRepository
+from src.services.campaigns.render import RenderedMessage, render
+from src.services.campaigns.telegram import CampaignSender
 from src.services.crm.segments import SegmentService
 from src.services.payments.dtos import PaymentWebhookDTO
 from src.services.payments.ports import PaymentGateway, PaymentGatewayError
@@ -63,10 +73,13 @@ class CampaignOutboxWorker(_OutboxWorker):
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        sender: Any,
+        sender: CampaignSender,
+        *,
+        settings: Settings | None = None,
     ) -> None:
         super().__init__(session_factory)
         self.sender = sender
+        self.settings = settings or get_settings()
 
     @staticmethod
     def _delivery_id(job: ClaimedOutbox) -> UUID:
@@ -75,17 +88,33 @@ class CampaignOutboxWorker(_OutboxWorker):
             raise ValueError("Outbox delivery id is invalid")
         return UUID(value)
 
-    async def _is_eligible_before_send(self, job: ClaimedOutbox) -> bool:
+    async def _prepare(self, job: ClaimedOutbox) -> RenderedMessage | None:
+        """The message for this guest, or None when they must not get it any more."""
         async with self.session_factory() as session, session.begin():
             delivery = await session.scalar(
                 select(CampaignDelivery).where(CampaignDelivery.id == self._delivery_id(job))
             )
             if delivery is None:
-                return False
+                return None
             campaign = await session.get(Campaign, delivery.campaign_id)
             if campaign is None or CampaignStatus(campaign.status) == CampaignStatus.CANCELLED:
-                return False
-            return await SegmentService(session).is_eligible(delivery.user_id, campaign.audience)
+                return None
+            if not await SegmentService(session).is_eligible(delivery.user_id, campaign.audience):
+                return None
+            event = await session.get(Event, campaign.event_id) if campaign.event_id else None
+            links = await session.execute(
+                select(CampaignLink.button_index, CampaignLink.code).where(
+                    CampaignLink.campaign_id == campaign.id
+                )
+            )
+            return render(
+                campaign,
+                event,
+                {index: code for index, code in links.all()},
+                media_root=self.settings.media_root,
+                miniapp_link=self.settings.miniapp_link,
+                public_base_url=self.settings.public_base_url,
+            )
 
     @staticmethod
     async def _maybe_complete_campaign(session: AsyncSession, campaign: Campaign) -> None:
@@ -182,14 +211,14 @@ class CampaignOutboxWorker(_OutboxWorker):
             if job is None:
                 break
             try:
-                if not await self._is_eligible_before_send(job):
+                message = await self._prepare(job)
+                if message is None:
                     await self._finish(job, blocked=True)
                     continue
                 telegram_id = job.payload["telegram_id"]
-                text = job.payload["text"]
-                if not isinstance(telegram_id, int) or not isinstance(text, str):
+                if not isinstance(telegram_id, int):
                     raise ValueError("Outbox campaign payload is invalid")
-                message_id = await self.sender.send_message(telegram_id, text)
+                message_id = (await self.sender.send(telegram_id, message)).message_id
             except Exception as exc:  # provider failures are persisted and retried
                 await self._finish(job, error=str(exc))
             else:

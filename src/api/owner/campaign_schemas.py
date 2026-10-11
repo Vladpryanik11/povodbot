@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from pydantic import AwareDatetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,11 @@ from src.models.events import Event
 from src.services.campaigns.audience import AudienceFilter
 from src.services.campaigns.content import CampaignFieldError
 from src.services.media.posters import poster_url
+
+
+class SendInput(OwnerIn):
+    # No time means "now"; a time means "schedule for then".
+    at: AwareDatetime | None = None
 
 
 class CampaignInput(OwnerIn):

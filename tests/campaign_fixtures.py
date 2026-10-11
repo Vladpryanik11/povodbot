@@ -118,3 +118,20 @@ async def delivered(
     session.add(delivery)
     await session.flush()
     return delivery
+
+
+async def scenario(session):
+    """Two evenings and seven guests: A going, B attended, C liked, E liked and going,
+    F nothing, G blocked the bot, H revoked marketing."""
+    x = await evening(session, D1)
+    y = await evening(session, D2, title="Книжный вечер")
+    people = {
+        "A": await guest(session, 1, going=[x]),
+        "B": await guest(session, 2, attended=[x]),
+        "C": await guest(session, 3, liked=[x]),
+        "E": await guest(session, 5, liked=[x], going=[x]),
+        "F": await guest(session, 6),
+        "G": await guest(session, 7, liked=[x], blocked=True),
+        "H": await guest(session, 8, liked=[x], revoked=True),
+    }
+    return x, y, people

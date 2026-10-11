@@ -1,10 +1,11 @@
 """Owner Mini App broadcasts before sending: drafts, picture, audience count and templates."""
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from typing import Annotated, Literal
 from uuid import UUID
 
+from aiogram import Bot
 from fastapi import Depends, File, Query, Response, UploadFile
 from pydantic.alias_generators import to_camel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from src.api.owner.campaign_schemas import (
     CampaignOut,
     CampaignPatch,
     SaveAsTemplateInput,
+    SendInput,
     TemplateInput,
     TemplateOut,
     campaign_list,
@@ -29,19 +31,30 @@ from src.api.owner.posters import UPLOAD_BUSY, upload_lock
 from src.api.owner.router import router
 from src.core.config import get_settings
 from src.db.session import get_async_session
+from src.models.admin import AdminUser
 from src.models.base import utcnow
 from src.repositories.admin import AdminRepository
 from src.services.admin.permissions import AdminActor
 from src.services.audit.service import AuditService
 from src.services.campaigns.audience import AudienceFilter, audience_count
 from src.services.campaigns.content import CampaignFieldError
+from src.services.campaigns.launch import CampaignLauncher, QuietHours, send_test
 from src.services.campaigns.owner import CampaignConflict, CampaignLocked, OwnerCampaignService
+from src.services.campaigns.render import CampaignNotReady
+from src.services.campaigns.telegram import (
+    AiogramCampaignSender,
+    CampaignSender,
+    RecipientBlocked,
+    RetryAfter,
+)
 from src.services.campaigns.templates import TemplateLocked, TemplateService
 from src.services.media.posters import MAX_BYTES, PosterError, store_image
 
 CAMPAIGN_NOT_FOUND = "Рассылка не найдена"
 TEMPLATE_NOT_FOUND = "Шаблон не найден"
 REJECTED = "Так изменить рассылку нельзя"
+BOT_BLOCKED = "Бот не может тебе написать. Открой бота и нажми «Старт»"
+TELEGRAM_BUSY = "Telegram просит подождать. Попробуй через минуту"
 IMAGE_MIN_SIZE = (320, 320)
 
 Actor = Annotated[AdminActor, Depends(require_owner_campaigns)]
@@ -53,6 +66,11 @@ def campaign_errors(not_found: str = CAMPAIGN_NOT_FOUND) -> Iterator[None]:
     """Campaign and template service failures become the Mini App's error bodies."""
     try:
         yield
+    except QuietHours as error:
+        body = {"field": "at", "message": error.message}
+        raise OwnerApiError(422, body | {"suggestedAt": error.suggested_at.isoformat()}) from error
+    except CampaignNotReady as error:
+        raise OwnerApiError(422, {"message": error.message}) from error
     except CampaignFieldError as error:
         field = to_camel(error.field)
         raise OwnerApiError(422, {"field": field, "message": error.message}) from error
@@ -170,6 +188,65 @@ async def clear_campaign_image(campaign_id: UUID, actor: Actor, session: Session
         campaign = await OwnerCampaignService(session).clear_image(campaign_id)
     await audit(session, actor, "campaign.image_clear", campaign.id)
     return await campaign_out(session, campaign)
+
+
+async def campaign_sender() -> AsyncIterator[CampaignSender]:
+    """The real Telegram sender for "send to myself"; tests replace this dependency."""
+    bot = Bot(get_settings().telegram_token.get_secret_value())
+    try:
+        yield AiogramCampaignSender(bot)
+    finally:
+        await bot.session.close()
+
+
+Sender = Annotated[CampaignSender, Depends(campaign_sender)]
+
+
+@router.post("/campaigns/{campaign_id}/send", response_model=CampaignOut)
+async def send_campaign(
+    campaign_id: UUID, body: SendInput, actor: Actor, session: Session
+) -> CampaignOut:
+    with campaign_errors():
+        campaign = await CampaignLauncher(session).send(campaign_id, body.at, utcnow())
+    if body.at is None:
+        await audit(session, actor, "campaign.start", campaign.id)
+    else:
+        await audit(session, actor, "campaign.schedule", campaign.id, {"at": body.at.isoformat()})
+    return await campaign_out(session, campaign)
+
+
+@router.post("/campaigns/{campaign_id}/cancel", response_model=CampaignOut)
+async def cancel_campaign(campaign_id: UUID, actor: Actor, session: Session) -> CampaignOut:
+    with campaign_errors():
+        campaign = await CampaignLauncher(session).cancel(campaign_id)
+    await audit(session, actor, "campaign.cancel", campaign.id)
+    return await campaign_out(session, campaign)
+
+
+@router.post("/campaigns/{campaign_id}/stop", response_model=CampaignOut)
+async def stop_campaign(campaign_id: UUID, actor: Actor, session: Session) -> CampaignOut:
+    with campaign_errors():
+        campaign = await CampaignLauncher(session).stop(campaign_id, utcnow())
+    await audit(session, actor, "campaign.stop", campaign.id)
+    return await campaign_out(session, campaign)
+
+
+@router.post("/campaigns/{campaign_id}/test", status_code=204)
+async def test_campaign(
+    campaign_id: UUID, actor: Actor, session: Session, sender: Sender
+) -> Response:
+    admin = await session.get(AdminUser, actor.id)
+    if admin is None or admin.telegram_id is None:
+        raise OwnerApiError(422, {"message": BOT_BLOCKED})
+    with campaign_errors():
+        try:
+            await send_test(session, campaign_id, admin.telegram_id, sender, get_settings())
+        except RecipientBlocked as error:
+            raise OwnerApiError(422, {"message": BOT_BLOCKED}) from error
+        except RetryAfter as error:
+            raise OwnerApiError(429, {"message": TELEGRAM_BUSY}) from error
+    await audit(session, actor, "campaign.test", campaign_id)
+    return Response(status_code=204)
 
 
 @router.post(

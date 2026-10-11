@@ -6,24 +6,9 @@ from pydantic import ValidationError
 from src.models.campaigns import DeliveryStatus
 from src.services.campaigns.audience import AudienceFilter, audience_count, limited_user_ids
 from src.services.crm.segments import SegmentService
-from tests.campaign_fixtures import D1, D2, delivered, evening, guest
+from tests.campaign_fixtures import D1, D2, delivered, scenario
 
 NOW = datetime.now(UTC)
-
-
-async def scenario(session):
-    x = await evening(session, D1)
-    y = await evening(session, D2, title="Книжный вечер")
-    people = {
-        "A": await guest(session, 1, going=[x]),
-        "B": await guest(session, 2, attended=[x]),
-        "C": await guest(session, 3, liked=[x]),
-        "E": await guest(session, 5, liked=[x], going=[x]),
-        "F": await guest(session, 6),
-        "G": await guest(session, 7, liked=[x], blocked=True),
-        "H": await guest(session, 8, liked=[x], revoked=True),
-    }
-    return x, y, people
 
 
 async def picked(session, people, raw: dict) -> set[str]:

@@ -10,23 +10,15 @@ from src.db.session import get_session_factory
 from src.models.campaigns import Campaign, CampaignStatus
 from src.repositories.reservations import ReservationRepository
 from src.services.campaigns.delivery import CampaignDeliveryWorker
+from src.services.campaigns.telegram import AiogramCampaignSender, CampaignSender
 from src.services.payments.tbank_client import TBankPaymentGateway
 from src.services.reservations.service import ReservationService
 from src.workers.outbox import CampaignOutboxWorker, PaymentRefundOutboxWorker
 
 
-class AiogramSender:
-    def __init__(self, bot: Bot):
-        self.bot = bot
-
-    async def send_message(self, telegram_id: int, text: str) -> str:
-        message = await self.bot.send_message(telegram_id, text)
-        return str(message.message_id)
-
-
 async def run_once(
     session_factory: async_sessionmaker[AsyncSession],
-    sender: AiogramSender,
+    sender: CampaignSender,
     payment_gateway: TBankPaymentGateway,
 ) -> tuple[int, int]:
     async with session_factory() as session, session.begin():
@@ -64,7 +56,7 @@ async def run() -> None:
     )
     try:
         while True:
-            await run_once(get_session_factory(), AiogramSender(bot), payment_gateway)
+            await run_once(get_session_factory(), AiogramCampaignSender(bot), payment_gateway)
             await asyncio.sleep(1)
     finally:
         await bot.session.close()
