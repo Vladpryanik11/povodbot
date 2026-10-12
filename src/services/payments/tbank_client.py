@@ -73,7 +73,7 @@ class TBankPaymentGateway:
 
     def verify_notification(self, payload: Mapping[str, object]) -> bool:
         token = payload.get("Token")
-        if not isinstance(token, str) or not token:
+        if not isinstance(token, str) or not token or not token.isascii():
             return False
         expected = self.build_token(payload, self.password)
         return hmac.compare_digest(expected, token)

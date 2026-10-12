@@ -63,8 +63,8 @@ not be used for future capacity, locking or concurrency tests.
 
 Settings load environment variables and optional `.env`; `get_settings()` caches
 the validated object. Restart after configuration changes. Production requires
-nonblank `TELEGRAM_TOKEN`, `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD` and
-`TBANK_WEBHOOK_SECRET`. The payment slice uses T‑Bank Internet Acquiring from
+nonblank `TELEGRAM_TOKEN`, `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD`;
+T‑Bank notifications are signed only by the body `Token`. The payment slice uses T‑Bank Internet Acquiring from
 the T‑Business cabinet (`/v2/Init`, `GetState`, `Cancel`); `TBANK_API_TOKEN` is
 optional when the terminal contract does not require a bearer token. Integration
 credentials remain blank for development.

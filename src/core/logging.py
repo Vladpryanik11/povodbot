@@ -17,7 +17,6 @@ def configure_logging(settings: Settings) -> None:
             settings.tbank_terminal_key,
             settings.tbank_password,
             settings.tbank_api_token,
-            settings.tbank_webhook_secret,
             settings.ticket_qr_secret,
         )
         if secret.get_secret_value()

@@ -1,6 +1,7 @@
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
@@ -13,32 +14,23 @@ from src.services.payments.tbank_client import TBankPaymentGateway
 router = APIRouter(prefix="/api/webhooks/tbank", tags=["tbank webhooks"])
 
 
-def _provided_secret(authorization: str | None, x_tbank_webhook_secret: str | None) -> str:
-    if authorization and authorization.lower().startswith("bearer "):
-        return authorization[7:].strip()
-    return x_tbank_webhook_secret or ""
-
-
-@router.post("/payment-status")
+@router.post("/payment-status", response_class=PlainTextResponse)
 async def payment_status(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_async_session)],
-    authorization: Annotated[str | None, Header()] = None,
-    x_tbank_webhook_secret: Annotated[str | None, Header()] = None,
-) -> dict[str, Any]:
+) -> PlainTextResponse:
+    # T-Bank signs notifications only with the body Token and retries until it gets plain OK.
     settings = get_settings()
-    configured_secret = settings.tbank_webhook_secret.get_secret_value()
-    if (
-        configured_secret
-        and _provided_secret(authorization, x_tbank_webhook_secret) != configured_secret
-    ):
-        raise HTTPException(status_code=401, detail="Invalid webhook authentication")
+    if not settings.tbank_password.get_secret_value():
+        raise HTTPException(status_code=503, detail="Payment notifications are not configured")
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+        raise HTTPException(status_code=422, detail="Invalid JSON") from exc
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Webhook payload must be an object")
+        raise HTTPException(status_code=422, detail="Webhook payload must be an object")
+    if payload.get("TerminalKey") != settings.tbank_terminal_key.get_secret_value():
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     gateway = TBankPaymentGateway(
         settings.tbank_terminal_key,
@@ -57,7 +49,7 @@ async def payment_status(
         amount_minor = (
             int(amount) if isinstance(amount, (int, str)) and str(amount).isdigit() else None
         )
-        result = await PaymentService(PaymentRepository(session), gateway).apply_webhook(
+        await PaymentService(PaymentRepository(session), gateway).apply_webhook(
             PaymentWebhookDTO(
                 provider_payment_id=str(provider_payment_id),
                 provider_status=provider_status,
@@ -71,10 +63,6 @@ async def payment_status(
                 payload=payload,
             )
         )
-        return {
-            "accepted": result.accepted,
-            "duplicate": result.duplicate,
-            "reason": result.reason,
-        }
+        return PlainTextResponse("OK")
     finally:
         await gateway.aclose()
