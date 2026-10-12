@@ -21,7 +21,7 @@ from src.models.campaigns import (
 from src.models.events import Event
 from src.models.identity import User
 from src.models.outbox import Outbox
-from src.models.payments import Payment
+from src.models.payments import Payment, PaymentStatus
 from src.repositories.payments import PaymentRepository
 from src.services.campaigns.render import RenderedMessage, render
 from src.services.campaigns.telegram import (
@@ -32,7 +32,11 @@ from src.services.campaigns.telegram import (
 )
 from src.services.crm.segments import SegmentService
 from src.services.payments.dtos import PaymentWebhookDTO
-from src.services.payments.ports import PaymentGateway, PaymentGatewayError
+from src.services.payments.ports import (
+    PaymentGateway,
+    PaymentGatewayError,
+    PaymentProviderRejected,
+)
 from src.services.payments.service import (
     REFUNDED_STATUSES,
     REFUNDING_STATUSES,
@@ -43,10 +47,15 @@ from src.workers.throttle import Throttle
 
 OUTBOX_LEASE = timedelta(seconds=60)
 MAX_DELIVERY_ATTEMPTS = 5
+REFUND_MAX_ATTEMPTS = 10
 # Why a queued guest got nothing from this job.
 DROP = "drop"
 NOT_ELIGIBLE = "recipient_not_eligible"
 BOT_BLOCKED = "bot_blocked"
+
+
+def refund_backoff(attempts: int) -> timedelta:
+    return timedelta(seconds=min(30 * 2**attempts, 3600))
 
 
 @dataclass(frozen=True)
@@ -352,17 +361,41 @@ class PaymentRefundOutboxWorker(_OutboxWorker):
             raise ValueError(f"Outbox refund field {key} is invalid")
         return value
 
-    async def _finish(self, job: ClaimedOutbox, provider_status: str, *, reconcile: bool) -> None:
+    @staticmethod
+    def _payment_id(job: ClaimedOutbox) -> UUID | None:
+        try:
+            return UUID(str(job.payload["payment_id"]))
+        except (KeyError, ValueError):
+            return None
+
+    async def _retry(self, job: ClaimedOutbox) -> None:
+        """The bank did not answer; the next try starts with GetState, so it never refunds twice."""
         async with self.session_factory() as session, session.begin():
             event = await session.scalar(
                 select(Outbox).where(Outbox.id == job.id).with_for_update()
             )
             if event is None or event.processed_at is not None:
                 return
-            payment_id = UUID(self._required_text(job, "payment_id"))
-            payment = await session.scalar(select(Payment).where(Payment.id == payment_id))
+            event.available_at = datetime.now(UTC) + refund_backoff(job.attempts)
+            payment_id = self._payment_id(job)
+            payment = await session.get(Payment, payment_id) if payment_id else None
+            if payment is not None and PaymentStatus(payment.status) == PaymentStatus.REFUNDING:
+                payment.provider_status = "REFUND_RETRY"
+
+    async def _finish(self, job: ClaimedOutbox, provider_status: str, *, reconcile: bool) -> None:
+        """Closes the job; without a refund status from the bank the payment goes to an operator."""
+        now = datetime.now(UTC)
+        async with self.session_factory() as session, session.begin():
+            event = await session.scalar(
+                select(Outbox).where(Outbox.id == job.id).with_for_update()
+            )
+            if event is None or event.processed_at is not None:
+                return
+            event.processed_at = now
+            event.available_at = now
+            payment_id = self._payment_id(job)
+            payment = await session.get(Payment, payment_id) if payment_id else None
             if payment is None:
-                event.processed_at = datetime.now(UTC)
                 return
             if reconcile:
                 await PaymentService(PaymentRepository(session), self.gateway).apply_webhook(
@@ -376,13 +409,10 @@ class PaymentRefundOutboxWorker(_OutboxWorker):
                         payload={"Status": provider_status},
                     )
                 )
-            else:
+            elif PaymentStatus(payment.status) == PaymentStatus.REFUNDING:
+                # A payment refunded meanwhile by the bank's own notice is left alone.
                 payment.provider_status = provider_status[:64]
-            if provider_status in REFUNDED_STATUSES or provider_status in REFUNDING_STATUSES:
-                event.processed_at = datetime.now(UTC)
-                event.available_at = datetime.now(UTC)
-            else:
-                event.processed_at = datetime.now(UTC)
+                payment.status = PaymentStatus.RECONCILIATION_REQUIRED
 
     async def process_pending(self, limit: int = 100) -> int:
         if type(limit) is not int or not 1 <= limit <= 1000:
@@ -408,9 +438,15 @@ class PaymentRefundOutboxWorker(_OutboxWorker):
                     status,
                     reconcile=status in REFUNDED_STATUSES or status in REFUNDING_STATUSES,
                 )
-            except (PaymentGatewayError, ValueError, KeyError):
-                # A lost/ambiguous Cancel response must be reconciled, not
-                # blindly retried. T-Bank status lookup is the safe next step.
+            except PaymentProviderRejected:
+                await self._finish(job, "REFUND_REJECTED", reconcile=False)
+            except PaymentGatewayError:
+                # A lost or failed Cancel is retried later; the retry asks GetState first.
+                if job.attempts < REFUND_MAX_ATTEMPTS:
+                    await self._retry(job)
+                else:
+                    await self._finish(job, "REFUND_UNKNOWN", reconcile=False)
+            except (ValueError, KeyError):
                 await self._finish(job, "REFUND_UNKNOWN", reconcile=False)
             processed += 1
         return processed

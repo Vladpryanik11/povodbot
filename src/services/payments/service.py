@@ -38,6 +38,8 @@ AUTHORIZED_STATUSES = {"AUTHORIZED"}
 FAILED_STATUSES = {"REJECTED", "DEADLINE_EXPIRED", "CANCELED", "REVERSED"}
 REFUNDING_STATUSES = {"REFUNDING", "PARTIAL_REFUNDED"}
 REFUNDED_STATUSES = {"REFUNDED"}
+# A late payment or a refund that failed: an operator may still return the money.
+REFUNDABLE_AFTER_RECONCILIATION = {"CONFIRMED", "REFUND_RETRY", "REFUND_UNKNOWN", "REFUND_REJECTED"}
 IN_PROGRESS_STATUSES = {
     "NEW",
     "FORM_SHOWED",
@@ -858,26 +860,37 @@ class PaymentService:
             # response was lost. Reconcile by webhook/status instead of
             # sending a second Cancel request.
             return self._dto(payment)
-        if PaymentStatus(payment.status) != PaymentStatus.CONFIRMED:
+        refundable = PaymentStatus(payment.status) == PaymentStatus.CONFIRMED or (
+            PaymentStatus(payment.status) == PaymentStatus.RECONCILIATION_REQUIRED
+            and payment.provider_status in REFUNDABLE_AFTER_RECONCILIATION
+        )
+        if not refundable:
             raise PaymentStateError("Only confirmed payments can be refunded")
         payment.status = PaymentStatus.REFUNDING
         await self._transition(payment.order_id, OrderTransition.REQUEST_REFUND, "refund_requested")
         existing_command = await self.repository.session.scalar(
             select(Outbox).where(Outbox.deduplication_key == f"payment:refund:{payment.id}")
         )
+        command = {
+            "payment_id": str(payment.id),
+            "provider_payment_id": payment.provider_payment_id,
+            "amount_minor": payment.amount_kopecks,
+            "reason": reason,
+        }
         if existing_command is None:
             self.repository.session.add(
                 Outbox(
                     event_type="payment.refund",
                     deduplication_key=f"payment:refund:{payment.id}",
-                    payload={
-                        "payment_id": str(payment.id),
-                        "provider_payment_id": payment.provider_payment_id,
-                        "amount_minor": payment.amount_kopecks,
-                        "reason": reason,
-                    },
+                    payload=command,
                 )
             )
+        elif existing_command.processed_at is not None:
+            # A refund that gave up or was rejected starts over on the same command.
+            existing_command.payload = command
+            existing_command.processed_at = None
+            existing_command.attempts = 0
+            existing_command.available_at = datetime.now(UTC)
         payment.provider_status = "REFUND_QUEUED"
         await self.repository.save()
         return self._dto(payment)
