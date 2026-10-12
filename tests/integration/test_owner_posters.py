@@ -17,7 +17,8 @@ from src.services.media.posters import MAX_BYTES
 from tests.integration.test_owner_events import POSTER_KEY, add_poster, client_for, create_event
 from tests.owner_fixtures import make_admin, owner_headers
 
-TOO_SMALL = {"field": "poster", "message": "Фото маловато — нужно хотя бы 800×1000"}
+NOT_A_PHOTO = {"field": "poster", "message": "Это не фото — подойдут JPEG, PNG, WebP или HEIC"}
+TEXT = b"just some text, not a picture"
 BUSY = {"message": "Фото ещё загружается — подожди"}
 
 
@@ -70,16 +71,16 @@ async def test_upload_sets_poster(pg_factory, owner_env, media_root):
     assert published.json()["poster"] == poster
 
 
-async def test_upload_rejects_small(pg_factory, owner_env, media_root):
+async def test_rejected_upload_keeps_poster(pg_factory, owner_env, media_root):
     await make_admin(pg_factory)
     async with client_for(pg_factory) as client:
         created = await create_event(client)
         await add_poster(pg_factory, created["id"])
         before = await fetch(client, created["id"])
-        response = await upload(client, created["id"], jpeg((700, 900)))
+        response = await upload(client, created["id"], TEXT)
         after = await fetch(client, created["id"])
-    assert response.status_code == 422
-    assert response.json() == TOO_SMALL
+    assert response.status_code == 415
+    assert response.json() == NOT_A_PHOTO
     assert after["poster"] == before["poster"]
     assert after["poster"]["url"] == f"/media/{POSTER_KEY}-1080.webp"
     assert after["updatedAt"] == before["updatedAt"]
@@ -90,12 +91,9 @@ async def test_upload_rejects_non_photo(pg_factory, owner_env, media_root):
     await make_admin(pg_factory)
     async with client_for(pg_factory) as client:
         created = await create_event(client)
-        response = await upload(client, created["id"], b"just some text, not a picture")
+        response = await upload(client, created["id"], TEXT)
     assert response.status_code == 415
-    assert response.json() == {
-        "field": "poster",
-        "message": "Это не фото — подойдут JPEG, PNG, WebP или HEIC",
-    }
+    assert response.json() == NOT_A_PHOTO
 
 
 async def test_upload_rejects_oversize(pg_factory, owner_env, media_root):
@@ -203,9 +201,9 @@ async def test_failed_upload_releases_lock(pg_factory, owner_env, media_root):
     await make_admin(pg_factory)
     async with client_for(pg_factory) as client:
         created = await create_event(client)
-        rejected = await upload(client, created["id"], jpeg((700, 900)))
+        rejected = await upload(client, created["id"], TEXT)
         accepted = await upload(client, created["id"], jpeg((1200, 1500)))
-    assert rejected.status_code == 422
+    assert rejected.status_code == 415
     assert accepted.status_code == 200, accepted.text
 
 
@@ -214,7 +212,7 @@ async def test_poster_audit(pg_factory, owner_env, media_root):
     async with client_for(pg_factory) as client:
         created = await create_event(client)
         uploaded = await upload(client, created["id"], jpeg((1200, 1500)))
-        await upload(client, created["id"], jpeg((700, 900)))
+        await upload(client, created["id"], TEXT)
         moved = await client.patch(
             f"/api/owner/events/{created['id']}/poster-focus",
             json={"focusX": 0.2, "focusY": 0.4},

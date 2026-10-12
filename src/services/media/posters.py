@@ -10,7 +10,6 @@ from PIL import Image, ImageCms, ImageOps
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_PIXELS = 40_000_000
-MIN_SIZE = (800, 1000)
 MASTER_BOX = (2000, 2000)
 VARIANT_WIDTHS = (480, 1080)
 WEBP_QUALITY = 82
@@ -40,11 +39,11 @@ def poster_url(key: str) -> str:
 
 
 def store_poster(data: bytes, media_root: Path) -> StoredPoster:
-    return store_image(data, media_root, "posters", MIN_SIZE)
+    return store_image(data, media_root, "posters")
 
 
 def store_image(
-    data: bytes, media_root: Path, folder: str, min_size: tuple[int, int]
+    data: bytes, media_root: Path, folder: str, min_size: tuple[int, int] | None = None
 ) -> StoredPoster:
     """WebP master and 480/1080 variants under MEDIA_ROOT/<folder>/, named by content hash."""
     if len(data) > MAX_BYTES:
@@ -78,7 +77,7 @@ def _has_image_signature(data: bytes) -> bool:
     )
 
 
-def _decode(data: bytes, min_size: tuple[int, int]) -> Image.Image:
+def _decode(data: bytes, min_size: tuple[int, int] | None) -> Image.Image:
     try:
         with Image.open(BytesIO(data)) as source:
             if source.width * source.height > MAX_PIXELS:
@@ -91,7 +90,7 @@ def _decode(data: bytes, min_size: tuple[int, int]) -> Image.Image:
         raise PosterError(422, "Фото слишком большое по пикселям") from exc
     except Exception as exc:
         raise PosterError(415, NOT_A_PHOTO) from exc
-    if image.width < min_size[0] or image.height < min_size[1]:
+    if min_size and (image.width < min_size[0] or image.height < min_size[1]):
         raise PosterError(422, f"Фото маловато — нужно хотя бы {min_size[0]}×{min_size[1]}")
     image.thumbnail(MASTER_BOX, Image.Resampling.LANCZOS)
     return image

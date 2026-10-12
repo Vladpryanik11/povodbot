@@ -191,13 +191,11 @@ def test_heic_accepted(tmp_path: Path) -> None:
     assert (tmp_path / f"{stored.key}-1080.webp").exists()
 
 
-def test_rejects_small(tmp_path: Path) -> None:
-    with pytest.raises(PosterError) as error:
-        store_poster(_encode((700, 900), "JPEG"), tmp_path)
+def test_accepts_small(tmp_path: Path) -> None:
+    stored = store_poster(_encode((300, 200), "JPEG"), tmp_path)
 
-    assert error.value.status == 422
-    assert error.value.message == "Фото маловато — нужно хотя бы 800×1000"
-    assert _variants(tmp_path) == []
+    assert (stored.width, stored.height) == (300, 200)
+    assert (tmp_path / f"{stored.key}-1080.webp").exists()
 
 
 def test_rejects_non_image(tmp_path: Path) -> None:

@@ -22,7 +22,6 @@ export const MSG = {
   rejected: 'Так изменить вечер нельзя',
   photoTooBig: 'Фото больше 15 МБ',
   notAPhoto: 'Это не фото — подойдут JPEG, PNG, WebP или HEIC',
-  photoSmall: 'Фото маловато — нужно хотя бы 800×1000',
   uploadBusy: 'Фото ещё загружается — подожди',
   focus: 'Точка фокуса вне фото',
 

@@ -87,7 +87,6 @@ describe('PosterSheet', () => {
 
   it.each([
     [415, MSG.notAPhoto],
-    [422, MSG.photoSmall],
     [429, MSG.uploadBusy],
     [0, MSG.network],
   ])('shows the %s answer in the sheet', async (status, text) => {
