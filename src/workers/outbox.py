@@ -38,6 +38,7 @@ from src.services.payments.service import (
     REFUNDING_STATUSES,
     PaymentService,
 )
+from src.services.tickets.delivery import TICKET_ISSUED_EVENT, build_ticket_issued
 from src.workers.throttle import Throttle
 
 OUTBOX_LEASE = timedelta(seconds=60)
@@ -80,6 +81,27 @@ class _OutboxWorker:
             event.available_at = now + OUTBOX_LEASE
             await session.flush()
             return ClaimedOutbox(event.id, event.event_type, dict(event.payload), event.attempts)
+
+    async def _postpone(self, job: ClaimedOutbox, seconds: float) -> None:
+        """Telegram asked the bot to wait: the try does not count, no job of this kind goes out."""
+        async with self.session_factory() as session, session.begin():
+            event = await session.scalar(
+                select(Outbox).where(Outbox.id == job.id).with_for_update()
+            )
+            if event is None or event.processed_at is not None:
+                return
+            event.attempts = max(event.attempts - 1, 0)
+            until = datetime.now(UTC) + timedelta(seconds=seconds)
+            event.available_at = until
+            await session.execute(
+                update(Outbox)
+                .where(
+                    Outbox.event_type == job.event_type,
+                    Outbox.processed_at.is_(None),
+                    Outbox.available_at < until,
+                )
+                .values(available_at=until)
+            )
 
 
 class CampaignOutboxWorker(_OutboxWorker):
@@ -152,27 +174,6 @@ class CampaignOutboxWorker(_OutboxWorker):
         if not queued:
             campaign.status = CampaignStatus.COMPLETED
             campaign.finished_at = now
-
-    async def _postpone(self, job: ClaimedOutbox, seconds: float) -> None:
-        """Telegram asked the bot to wait: the try does not count, and no broadcast goes out."""
-        async with self.session_factory() as session, session.begin():
-            event = await session.scalar(
-                select(Outbox).where(Outbox.id == job.id).with_for_update()
-            )
-            if event is None or event.processed_at is not None:
-                return
-            event.attempts = max(event.attempts - 1, 0)
-            until = datetime.now(UTC) + timedelta(seconds=seconds)
-            event.available_at = until
-            await session.execute(
-                update(Outbox)
-                .where(
-                    Outbox.event_type == job.event_type,
-                    Outbox.processed_at.is_(None),
-                    Outbox.available_at < until,
-                )
-                .values(available_at=until)
-            )
 
     async def _finish(
         self,
@@ -271,6 +272,66 @@ class CampaignOutboxWorker(_OutboxWorker):
                 await self._finish(job, error=str(exc) or type(exc).__name__)
             else:
                 await self._finish(job, sent=sent)
+                delivered += 1
+        return delivered
+
+
+class TicketIssuedOutboxWorker(_OutboxWorker):
+    """Tells the guest the tickets are theirs; the tickets never depend on this message."""
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        sender: CampaignSender,
+    ) -> None:
+        super().__init__(session_factory)
+        self.sender = sender
+
+    async def _close(self, job: ClaimedOutbox, *, retry: bool = False) -> None:
+        now = datetime.now(UTC)
+        async with self.session_factory() as session, session.begin():
+            event = await session.scalar(
+                select(Outbox).where(Outbox.id == job.id).with_for_update()
+            )
+            if event is None or event.processed_at is not None:
+                return
+            if retry and job.attempts < MAX_DELIVERY_ATTEMPTS:
+                event.available_at = now + timedelta(seconds=min(30 * 2**job.attempts, 3600))
+                return
+            event.available_at = now
+            event.processed_at = now
+
+    async def process_pending(self, limit: int = 100) -> int:
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("Outbox limit must be between 1 and 1000")
+        delivered = 0
+        for _ in range(limit):
+            job = await self._claim(TICKET_ISSUED_EVENT)
+            if job is None:
+                break
+            try:
+                order_id = UUID(str(job.payload["order_id"]))
+            except (KeyError, ValueError):
+                # A broken job never gets better; closing it keeps the queue moving.
+                await self._close(job)
+                continue
+            try:
+                async with self.session_factory() as session, session.begin():
+                    built = await build_ticket_issued(session, order_id)
+                if built is None:
+                    await self._close(job)
+                    continue
+                telegram_id, message = built
+                await self.sender.send(telegram_id, message)
+            except RetryAfter as wait:
+                await self._postpone(job, wait.seconds)
+                break
+            except RecipientBlocked:
+                await self._close(job)
+            except Exception:  # provider failures are retried with backoff
+                await self._close(job, retry=True)
+            else:
+                await self._close(job)
                 delivered += 1
         return delivered
 

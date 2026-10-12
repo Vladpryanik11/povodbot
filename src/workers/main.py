@@ -13,7 +13,11 @@ from src.services.campaigns.delivery import CampaignDeliveryWorker
 from src.services.campaigns.telegram import AiogramCampaignSender, CampaignSender
 from src.services.payments.tbank_client import TBankPaymentGateway
 from src.services.reservations.service import ReservationService
-from src.workers.outbox import CampaignOutboxWorker, PaymentRefundOutboxWorker
+from src.workers.outbox import (
+    CampaignOutboxWorker,
+    PaymentRefundOutboxWorker,
+    TicketIssuedOutboxWorker,
+)
 
 
 async def run_once(
@@ -37,6 +41,7 @@ async def run_once(
         for campaign_id in campaign_ids:
             await CampaignDeliveryWorker(session).deliver(campaign_id, batch_size=100)
     delivered += await CampaignOutboxWorker(session_factory, sender).process_pending(100)
+    await TicketIssuedOutboxWorker(session_factory, sender).process_pending(100)
     await PaymentRefundOutboxWorker(session_factory, payment_gateway).process_pending(100)
     return released, delivered
 

@@ -652,9 +652,11 @@ class PaymentService:
                 await attribution.record_funnel_event(
                     user_id, FunnelEventName.PURCHASE, occurred_at=now
                 )
+            from src.services.tickets.delivery import enqueue_ticket_issued
             from src.services.tickets.issuer import TicketIssuer
 
             await TicketIssuer(self.repository.session).issue_for_paid_order(payment.order_id)
+            await enqueue_ticket_issued(self.repository.session, payment.order_id)
         if payment.status == PaymentStatus.REFUNDED:
             payment.refunded_at = now
             from src.services.tickets.checkin import TicketService
