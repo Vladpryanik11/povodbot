@@ -9,10 +9,11 @@ def _texts(markup):
     return [button.text for row in markup.inline_keyboard for button in row]
 
 
-def test_menu_without_miniapp_url_is_just_tickets_and_support():
+def test_menu_without_miniapp_url_is_afisha_then_tickets_and_support():
     markup = main_menu()
     assert [[b.text for b in row] for row in markup.inline_keyboard] == [
-        ["Мои билеты", "Поддержка"]
+        ["Афиша"],
+        ["Мои билеты", "Поддержка"],
     ]
 
 
@@ -23,7 +24,13 @@ def test_menu_with_miniapp_url_has_web_app_row_then_the_pair():
     assert first.text == "Открыть Повод"
     assert first.web_app is not None
     assert first.web_app.url == "https://example.test/app"
-    assert [b.callback_data for b in markup.inline_keyboard[1]] == ["tickets:mine", "support"]
+    assert [b.text for b in markup.inline_keyboard[1]] == ["Афиша"]
+    assert [b.callback_data for b in markup.inline_keyboard[2]] == ["tickets:mine", "support"]
+
+
+def test_afisha_button_opens_the_in_chat_event_list():
+    afisha = main_menu("https://example.test/app").inline_keyboard[1][0]
+    assert afisha.callback_data == "events:all"
 
 
 def test_miniapp_url_defaults_to_empty():
