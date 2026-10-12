@@ -41,6 +41,7 @@ class OrderTransition(StrEnum):
     REQUEST_REFUND = "request_refund"
     CONFIRM_REFUND = "confirm_refund"
     REQUIRE_RECONCILIATION = "require_reconciliation"
+    RESOLVE_PAYMENT = "resolve_payment"
 
 
 class ReservationStatus(StrEnum):

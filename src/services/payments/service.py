@@ -14,11 +14,13 @@ from src.models.commerce import (
     Reservation,
     ReservationStatus,
 )
+from src.models.events import Event, EventStatus
 from src.models.outbox import Outbox
 from src.models.payments import Payment, PaymentEvent, PaymentStatus
 from src.repositories.events import EventRepository
 from src.repositories.orders import OrderRepository
 from src.repositories.payments import PaymentRepository
+from src.repositories.reservations import ReservationRepository
 from src.services.analytics.attribution import AttributionService, FunnelEventName
 from src.services.commerce.clock import Clock, SystemClock
 from src.services.orders.service import InvalidOrderTransition, OrderService
@@ -644,21 +646,7 @@ class PaymentService:
             reason = "payment_processing"
 
         if payment.status == PaymentStatus.CONFIRMED:
-            payment.paid_at = now
-            user_id = await self.repository.session.scalar(
-                select(Order.user_id).where(Order.id == payment.order_id)
-            )
-            if user_id is not None:
-                attribution = AttributionService(self.repository.session)
-                await attribution.record_purchase(user_id, now)
-                await attribution.record_funnel_event(
-                    user_id, FunnelEventName.PURCHASE, occurred_at=now
-                )
-            from src.services.tickets.delivery import enqueue_ticket_issued
-            from src.services.tickets.issuer import TicketIssuer
-
-            await TicketIssuer(self.repository.session).issue_for_paid_order(payment.order_id)
-            await enqueue_ticket_issued(self.repository.session, payment.order_id)
+            await self._after_paid(payment, now)
         if payment.status == PaymentStatus.REFUNDED:
             payment.refunded_at = now
             from src.services.tickets.checkin import TicketService
@@ -683,6 +671,24 @@ class PaymentService:
         if normalized not in KNOWN_STATUSES and settled:
             return "unknown_status"
         return None
+
+    async def _after_paid(self, payment: Payment, now: datetime) -> None:
+        """Purchase analytics, tickets and the guest's message for a payment just confirmed."""
+        payment.paid_at = now
+        user_id = await self.repository.session.scalar(
+            select(Order.user_id).where(Order.id == payment.order_id)
+        )
+        if user_id is not None:
+            attribution = AttributionService(self.repository.session)
+            await attribution.record_purchase(user_id, now)
+            await attribution.record_funnel_event(
+                user_id, FunnelEventName.PURCHASE, occurred_at=now
+            )
+        from src.services.tickets.delivery import enqueue_ticket_issued
+        from src.services.tickets.issuer import TicketIssuer
+
+        await TicketIssuer(self.repository.session).issue_for_paid_order(payment.order_id)
+        await enqueue_ticket_issued(self.repository.session, payment.order_id)
 
     async def _order_status(self, order_id: UUID) -> OrderStatus:
         value = await self.repository.session.scalar(
@@ -830,6 +836,73 @@ class PaymentService:
         payment.init_lease_until = None
         await self.repository.save()
         return self._dto(payment)
+
+    async def issue_late_payment(
+        self, payment_id: UUID, provider: ProviderPaymentStatus
+    ) -> PaymentDTO:
+        """Keeps a payment that arrived after the reservation ran out, if seats remain.
+
+        The operator's alternative to a refund. ``provider`` is a fresh GetState
+        snapshot; the bank must say the money is taken, for this payment and in
+        full. Locks follow the canonical event -> order -> payment order.
+        """
+        self._require_transaction()
+        now = _utc(self.clock.now())
+        unlocked = await self.repository.by_id(payment_id)
+        if unlocked is None:
+            raise LookupError("Payment not found")
+        orders = OrderRepository(self.repository.session)
+        event = await EventRepository(self.repository.session).get_for_update(
+            await orders.event_id(unlocked.order_id)
+        )
+        order = await orders.get_for_update(unlocked.order_id)
+        payment = await self.repository.get_for_update(payment_id)
+        if (
+            PaymentStatus(payment.status) != PaymentStatus.RECONCILIATION_REQUIRED
+            or OrderStatus(order.status) != OrderStatus.RECONCILIATION_REQUIRED
+        ):
+            raise PaymentStateError("Only an unresolved payment can be issued")
+        if provider.provider_status.upper().strip() not in CONFIRMED_STATUSES:
+            raise PaymentStateError("The bank has not confirmed this payment")
+        if (
+            not payment.provider_payment_id
+            or provider.provider_payment_id.strip() != payment.provider_payment_id
+        ):
+            raise PaymentStateError("Provider payment identity does not match")
+        if provider.amount_minor != payment.amount_kopecks:
+            raise PaymentStateError("Paid amount does not match the order")
+        if event.status != EventStatus.PUBLISHED or now >= _utc(event.ends_at):
+            raise PaymentStateError("The event is no longer on")
+        await self._require_seats(event, order)
+
+        await OrderService(orders, self.clock).transition(
+            order.id, OrderTransition.RESOLVE_PAYMENT, "late_payment_resolved"
+        )
+        payment.status = PaymentStatus.CONFIRMED
+        payment.provider_status = "CONFIRMED"
+        await self._after_paid(payment, now)
+        await self.repository.save()
+        return self._dto(payment)
+
+    async def _require_seats(self, event: Event, order: Order) -> None:
+        """The same ceiling as checkout: the event's capacity and each ticket type's limit."""
+        from src.services.reservations.service import CapacityExceeded
+
+        reservation = order.reservation
+        if reservation is not None and reservation.status in {
+            ReservationStatus.ACTIVE,
+            ReservationStatus.CONVERTED,
+        }:
+            return  # the order still holds its seats; they are already counted as taken
+        occupied = await ReservationRepository(self.repository.session).occupied_by_ticket(event.id)
+        if sum(occupied.values()) + sum(item.quantity for item in order.items) > event.capacity:
+            raise CapacityExceeded("Event capacity exceeded")
+        limits = {ticket.id: ticket.limit for ticket in event.ticket_types}
+        for item in order.items:
+            if item.ticket_type_id not in limits:
+                raise PaymentStateError("Ticket type no longer exists")
+            if occupied.get(item.ticket_type_id, 0) + item.quantity > limits[item.ticket_type_id]:
+                raise CapacityExceeded("Ticket type capacity exceeded")
 
     async def request_refund(self, payment_id: UUID, reason: str) -> PaymentDTO:
         """Persist a refund command; the provider call runs in the worker.

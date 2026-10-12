@@ -59,6 +59,21 @@ class PaymentAdminService:
                 raise LookupError("Payment not found")
             return service._dto(payment)
 
+    async def issue_late_payment(self, payment_id: UUID) -> PaymentDTO:
+        """Asks the bank about a late payment, then keeps it and issues tickets if seats remain."""
+        async with self.session_factory() as session, session.begin():
+            payment = await PaymentRepository(session).by_id(payment_id)
+            if payment is None:
+                raise LookupError("Payment not found")
+            provider_payment_id = payment.provider_payment_id
+            if not provider_payment_id:
+                raise PaymentStateError("Payment has no provider identity")
+
+        provider = await self.gateway.get_status(provider_payment_id)
+        async with self.session_factory() as session, session.begin():
+            service = PaymentService(PaymentRepository(session), self.gateway, self.clock)
+            return await service.issue_late_payment(payment_id, provider)
+
     async def bind_provider_payment(self, payment_id: UUID, provider_payment_id: str) -> PaymentDTO:
         provider_payment_id = provider_payment_id.strip()
         if not provider_payment_id or len(provider_payment_id) > 64:
