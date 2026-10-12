@@ -30,6 +30,16 @@ describe('Home', () => {
     expect(within(billboard()).getAllByRole('tab')).toHaveLength(3);
   });
 
+  it('puts the time line above the title and leaves the glow off', async () => {
+    renderScreen(<Home />);
+    await screen.findByRole('heading', { name: 'Скоро' });
+    const current = billboard().querySelector('[data-current]') as HTMLElement;
+    const kicker = within(current).getByText('Сегодня в 23:00');
+    const title = within(current).getByRole('heading', { name: 'Амели на большом экране' });
+    expect(kicker.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.documentElement.style.getPropertyValue('--poster')).toBe('');
+  });
+
   it('moves the billboard on by itself every six seconds', async () => {
     renderScreen(<Home />);
     await screen.findByRole('heading', { name: 'Скоро' });

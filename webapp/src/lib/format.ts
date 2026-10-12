@@ -86,7 +86,7 @@ const THIS_WEEKDAY = [
   'в эту субботу',
 ];
 
-/** Billboard line under the title: «Сегодня в 20:00», «Завтра в 20:00», «Уже в эту субботу», «чт, 16 окт в 20:00». */
+/** Billboard kicker above the title: «Сегодня в 20:00», «Завтра в 20:00», «Уже в эту субботу», «чт, 16 окт в 20:00». */
 export function billboardSubtitle(startsAt: string, timeZone: string, now: number): string {
   const day = dayKey(startsAt, timeZone);
   const today = dayKey(new Date(now).toISOString(), timeZone);

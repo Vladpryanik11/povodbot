@@ -14,14 +14,15 @@ const LONG_TITLE = 28;
 /** The club is 18+; events carry no age field yet. */
 const AGE = '18+';
 
-type Props = { events: EventCard[]; now: number; onColor(hex: string): void };
+type Props = { events: EventCard[]; now: number };
 
 /** Hero of the home screen: up to three nearest evenings, one at a time, moving on every 6 s (spec v2 §5). */
-export function Billboard({ events, now, onColor }: Props) {
+export function Billboard({ events, now }: Props) {
   const slides = events.slice(0, SLIDES);
   const directions = useDirections();
   const [index, setIndex] = useState(0);
   const [held, setHeld] = useState(false);
+  const [picked, setPicked] = useState<Record<string, string>>({});
   const current = slides[Math.min(index, slides.length - 1)];
   const ids = slides.map((e) => e.id).join();
 
@@ -34,19 +35,16 @@ export function Billboard({ events, now, onColor }: Props) {
   }, [held, index, slides.length]);
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || current.accentColor || !current.poster) return;
     let live = true;
-    onColor(eventColor(current));
-    if (!current.accentColor && current.poster) {
-      void extractPosterColor(current.poster.url).then((hex) => {
-        if (live && hex) onColor(eventColor(current, hex));
-      });
-    }
+    void extractPosterColor(current.poster.url).then((hex) => {
+      if (live && hex) setPicked((p) => ({ ...p, [current.id]: hex }));
+    });
     return () => {
       live = false;
     };
     // Keyed by id: a refetch hands over new objects for the same slide.
-  }, [current?.id, onColor]);
+  }, [current?.id]);
 
   if (!current) return null;
 
@@ -65,6 +63,7 @@ export function Billboard({ events, now, onColor }: Props) {
           const isCurrent = event.id === current.id;
           const direction = directions.find((d) => d.id === event.directionId);
           const long = event.title.length > LONG_TITLE;
+          const color = eventColor(event, picked[event.id]);
           return (
             <Link
               key={event.id}
@@ -74,21 +73,21 @@ export function Billboard({ events, now, onColor }: Props) {
               data-sold-out={event.soldOut || undefined}
               aria-hidden={isCurrent ? undefined : true}
               tabIndex={isCurrent ? undefined : -1}
-              style={{ '--poster': eventColor(event) } as CSSProperties}
+              style={{ '--poster': color } as CSSProperties}
               aria-roledescription="слайд"
               aria-label={`${i + 1} из ${slides.length}: ${event.title}`}
             >
-              <PosterImage poster={event.poster} color={eventColor(event)} icon={direction?.icon ?? 'film'} />
+              <PosterImage poster={event.poster} color={color} icon={direction?.icon ?? 'film'} />
               <div className={styles.scrim} />
               <div className={styles.top}>
                 <span className={styles.meta}>{direction ? `${direction.title} · ${AGE}` : AGE}</span>
                 <PosterStatus event={event} now={now} />
               </div>
               <div className={styles.bottom}>
-                <h2 className={`${styles.title} ${long ? 't-h1' : 't-billboard'}`} data-long={long || undefined}>
+                <p className={styles.kicker}>{billboardSubtitle(event.startsAt, event.timezone, now)}</p>
+                <h2 className={styles.title} data-long={long || undefined}>
                   {event.title}
                 </h2>
-                <p className={styles.subtitle}>{billboardSubtitle(event.startsAt, event.timezone, now)}</p>
               </div>
             </Link>
           );

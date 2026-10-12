@@ -8,7 +8,6 @@ import { DateStrip } from '../ui/DateStrip';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { FilterChips } from '../ui/FilterChips';
-import { useGlow } from '../ui/Glow';
 import { PosterRow } from '../ui/PosterRow';
 import { ReservationPlaque } from '../ui/ReservationPlaque';
 import { Skeleton } from '../ui/Skeleton';
@@ -25,7 +24,6 @@ export function Home() {
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me() });
   const [directionId, setDirectionId] = useState<string | null>(null);
   const [day, setDay] = useState<string | null>(null);
-  const [color, setColor] = useState<string | null>(null);
 
   const now = Date.now();
   const all = events.data ?? [];
@@ -34,8 +32,6 @@ export function Home() {
   const shown = day ? ofDirection.filter((e) => dayKey(e.startsAt, e.timezone) === day) : ofDirection;
   const thisWeek = shown.filter((e) => Date.parse(e.startsAt) - now <= WEEK_MS);
   const later = shown.filter((e) => Date.parse(e.startsAt) - now > WEEK_MS);
-  // The glow follows the billboard slide; no billboard, no glow.
-  useGlow(shown.length > 0 ? color : null);
 
   const plaque = me.data?.activeOrder ? <ReservationPlaque order={me.data.activeOrder} /> : null;
 
@@ -92,7 +88,7 @@ export function Home() {
         />
       ) : (
         <>
-          <Billboard events={shown} now={now} onColor={setColor} />
+          <Billboard events={shown} now={now} />
           <PosterRow title="На этой неделе" variant="wide" events={thisWeek} now={now} />
           <PosterRow title="Скоро" variant="tall" events={later} now={now} />
         </>
