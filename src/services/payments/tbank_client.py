@@ -73,7 +73,7 @@ class TBankPaymentGateway:
 
     def verify_notification(self, payload: Mapping[str, object]) -> bool:
         token = payload.get("Token")
-        if not isinstance(token, str) or not token:
+        if not isinstance(token, str) or not token or not token.isascii():
             return False
         expected = self.build_token(payload, self.password)
         return hmac.compare_digest(expected, token)
@@ -161,12 +161,23 @@ class TBankPaymentGateway:
         if not order_id or len(order_id) > 50:
             raise ValueError("Order id is invalid for T-Bank")
         result = await self._post("CheckOrder", {"OrderId": order_id})
+        payments = result.get("Payments")
+        if not isinstance(payments, list) or not payments:
+            raise PaymentGatewayError("CheckOrder found no payment")
+        if len(payments) > 1:
+            raise PaymentGatewayError("CheckOrder found several payments")
+        entry = payments[0]
+        if not isinstance(entry, dict):
+            raise PaymentGatewayError("CheckOrder found no payment")
+        raw = dict(entry)
+        if result.get("OrderId") is not None:
+            raw["OrderId"] = result["OrderId"]
         return ProviderPaymentStatus(
-            provider_payment_id=self._required_string(result, "PaymentId"),
-            provider_status=self._required_string(result, "Status"),
-            amount_minor=int(result["Amount"]) if result.get("Amount") is not None else None,
-            success=result.get("Success") if isinstance(result.get("Success"), bool) else None,
-            raw=result,
+            provider_payment_id=self._required_string(entry, "PaymentId"),
+            provider_status=self._required_string(entry, "Status"),
+            amount_minor=int(entry["Amount"]) if entry.get("Amount") is not None else None,
+            success=entry.get("Success") if isinstance(entry.get("Success"), bool) else None,
+            raw=raw,
         )
 
     async def cancel(

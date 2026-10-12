@@ -169,7 +169,7 @@ async def test_checkout_orchestrator_commits_intent_before_provider_call(pg_fact
         assert payment.provider_payment_id == "late-payment"
 
 
-async def test_refund_worker_reconciles_ambiguous_cancel_without_retrying(pg_factory):
+async def test_refund_worker_retries_ambiguous_cancel_later(pg_factory):
     async with pg_factory() as session, session.begin():
         event, user = await catalog(session)
         pending = await reservations(session).reserve(
@@ -189,4 +189,9 @@ async def test_refund_worker_reconciles_ambiguous_cancel_without_retrying(pg_fac
     async with pg_factory() as session, session.begin():
         payment = await session.scalar(select(Payment).where(Payment.id == checkout.payment_id))
         assert payment is not None
-        assert payment.provider_status == "REFUND_UNKNOWN"
+        assert payment.provider_status == "REFUND_RETRY"
+        command = await session.scalar(
+            select(Outbox).where(Outbox.deduplication_key == f"payment:refund:{payment.id}")
+        )
+        assert command is not None
+        assert command.processed_at is None

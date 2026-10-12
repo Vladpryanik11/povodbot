@@ -82,8 +82,9 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ## Переход на production (после подключения T-Bank)
 
 1. В `.env`: `ENVIRONMENT=production`, `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD`,
-   `TBANK_WEBHOOK_SECRET`, утверждённые `PERSONAL_CONSENT_*` и `MARKETING_CONSENT_*`.
+   утверждённые `PERSONAL_CONSENT_*` и `MARKETING_CONSENT_*`.
 2. Зарегистрировать T-Bank webhook на `https://ДОМЕН/api/webhooks/tbank/payment-status`.
+   Подпись уведомления — поле `Token` в теле, отдельного секрета нет.
 3. Пройти пробный платёж в sandbox, затем боевой на минимальную сумму с возвратом.
 
 ## Откат

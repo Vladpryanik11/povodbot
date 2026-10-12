@@ -20,6 +20,13 @@ START_AGAIN_ANON = "Привет! Открывай, посмотри, что у 
 TICKETS_TITLE = "Твои билеты:"
 TICKETS_EMPTY = "Билетов пока нет. Загляни в приложение, там афиша."
 TICKET_LINE = "{title}, {date} в {time}. {status}"
+TICKET_ISSUED_ONE = (
+    "Оплата прошла, билет твой.\n{title}, {date} в {time}.\nQR для входа — в «Мои билеты»."
+)
+TICKET_ISSUED_MANY = (
+    "Оплата прошла, билеты твои — {count} шт.\n{title}, {date} в {time}.\n"
+    "QR для входа — в «Мои билеты»."
+)
 TICKET_STATUS = {
     "issued": "Действует",
     "checked_in": "Использован",

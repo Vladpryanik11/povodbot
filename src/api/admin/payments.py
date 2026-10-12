@@ -18,6 +18,7 @@ from src.services.payments.admin import PaymentAdminService
 from src.services.payments.ports import PaymentGatewayError
 from src.services.payments.service import PaymentService, PaymentStateError
 from src.services.payments.tbank_client import TBankPaymentGateway
+from src.services.reservations.service import CapacityExceeded
 
 router = APIRouter(prefix="/api/admin/payments", tags=["admin payments"])
 
@@ -118,6 +119,30 @@ async def bind_provider_payment(
         raise HTTPException(status_code=404, detail="Payment not found") from exc
     except PaymentStateError as exc:
         raise HTTPException(status_code=409, detail="Provider payment cannot be bound") from exc
+    finally:
+        await gateway.aclose()
+
+
+@router.post("/{payment_id}/issue")
+async def issue_late_payment(
+    payment_id: UUID,
+    actor: Annotated[AdminActor, Depends(require_payment_admin)],
+) -> object:
+    gateway = _gateway()
+    try:
+        result = await PaymentAdminService(get_session_factory(), gateway).issue_late_payment(
+            payment_id
+        )
+        await _record_payment_audit(actor.id, "payment.issue_late", payment_id)
+        return result
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Payment not found") from exc
+    except CapacityExceeded as exc:
+        raise HTTPException(status_code=409, detail="No seats left, refund instead") from exc
+    except PaymentStateError as exc:
+        raise HTTPException(status_code=409, detail="Payment cannot be issued") from exc
+    except PaymentGatewayError as exc:
+        raise HTTPException(status_code=502, detail="Payment provider is unavailable") from exc
     finally:
         await gateway.aclose()
 

@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     tbank_password: SecretStr = SecretStr("")
     tbank_api_token: SecretStr = SecretStr("")
     tbank_api_base_url: str = "https://securepay.tinkoff.ru/v2"
-    tbank_webhook_secret: SecretStr = SecretStr("")
     ticket_qr_secret: SecretStr = SecretStr("")
     personal_consent_text: str = ""
     personal_consent_version: str = ""
@@ -89,11 +88,13 @@ class Settings(BaseSettings):
                 "telegram_token",
                 "tbank_terminal_key",
                 "tbank_password",
-                "tbank_webhook_secret",
                 "ticket_qr_secret",
             ):
                 if not getattr(self, name).get_secret_value().strip():
                     raise ValueError(f"{name} is required in production")
+            # Init's NotificationURL: without it the shared terminal notifies its cabinet address.
+            if not self.public_base_url.strip().startswith("https://"):
+                raise ValueError("public_base_url must be an https address in production")
             for name in (
                 "personal_consent_text",
                 "personal_consent_version",

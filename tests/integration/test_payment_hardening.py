@@ -238,3 +238,25 @@ async def test_init_rejects_provider_order_mismatch_without_binding(db_session):
 
     payment = await PaymentRepository(db_session).get_for_update(intent.payment_id)
     assert payment.provider_payment_id is None
+
+
+async def test_init_request_carries_notification_and_return_urls(db_session, monkeypatch):
+    from src.core.config import get_settings
+
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://144-31-76-55.sslip.io")
+    monkeypatch.setenv("MINIAPP_LINK", "https://t.me/povod_bot/app")
+    get_settings.cache_clear()
+    try:
+        pending = await _pending_order(db_session)
+        service = PaymentService(PaymentRepository(db_session), BlockingGateway(), FixedClock(NOW))
+        intent = await service.prepare(pending.order_id)
+    finally:
+        get_settings.cache_clear()
+
+    assert intent.request is not None
+    assert (
+        intent.request.notification_url
+        == "https://144-31-76-55.sslip.io/api/webhooks/tbank/payment-status"
+    )
+    assert intent.request.success_url.endswith(f"order_{pending.order_id.hex}")
+    assert intent.request.fail_url == intent.request.success_url

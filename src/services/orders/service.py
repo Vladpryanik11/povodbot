@@ -62,6 +62,8 @@ _ALLOWED: dict[tuple[OrderStatus, OrderTransition], OrderStatus] = {
         OrderTransition.REQUEST_REFUND,
     ): OrderStatus.REFUND_REQUESTED,
     (OrderStatus.REFUND_REQUESTED, OrderTransition.CONFIRM_REFUND): OrderStatus.REFUNDED,
+    # An operator keeps a late payment when seats remain; the payment service checks them.
+    (OrderStatus.RECONCILIATION_REQUIRED, OrderTransition.RESOLVE_PAYMENT): OrderStatus.PAID,
 }
 
 _REPLAYS = {
@@ -380,6 +382,13 @@ class OrderService:
         }:
             if reservation is not None and reservation.status == ReservationStatus.ACTIVE:
                 reservation.status = ReservationStatus.RELEASED
+                reservation.updated_at = now
+        elif transition == OrderTransition.RESOLVE_PAYMENT:
+            if reservation is not None and reservation.status in {
+                ReservationStatus.EXPIRED,
+                ReservationStatus.RELEASED,
+            }:
+                reservation.status = ReservationStatus.CONVERTED
                 reservation.updated_at = now
         elif transition == OrderTransition.CONFIRM_REFUND:
             if reservation is not None and reservation.status == ReservationStatus.CONVERTED:

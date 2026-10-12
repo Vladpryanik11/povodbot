@@ -5,7 +5,11 @@ import httpx
 import pytest
 
 from src.services.payments.dtos import CreatePaymentRequest
-from src.services.payments.ports import PaymentProviderRejected, PaymentProviderTimeout
+from src.services.payments.ports import (
+    PaymentGatewayError,
+    PaymentProviderRejected,
+    PaymentProviderTimeout,
+)
 from src.services.payments.tbank_client import TBankPaymentGateway
 
 
@@ -68,10 +72,10 @@ async def test_check_order_recovers_provider_identity_after_lost_init_response()
             200,
             json={
                 "Success": True,
-                "PaymentId": 9876,
                 "OrderId": "order-1",
-                "Amount": 15000,
-                "Status": "NEW",
+                "Payments": [
+                    {"PaymentId": 9876, "Amount": 15000, "Status": "NEW", "Success": True}
+                ],
             },
         )
 
@@ -84,7 +88,40 @@ async def test_check_order_recovers_provider_identity_after_lost_init_response()
     assert result.provider_payment_id == "9876"
     assert result.provider_status == "NEW"
     assert result.amount_minor == 15000
+    assert result.raw["OrderId"] == "order-1"
     assert seen["OrderId"] == "order-1"
+
+
+def check_order_gateway(payments):
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"Success": True, "OrderId": "order-1", "Payments": payments}
+        )
+
+    return TBankPaymentGateway("terminal", "password", transport=httpx.MockTransport(handler))
+
+
+async def test_check_order_without_payments_raises():
+    gateway = check_order_gateway([])
+    try:
+        with pytest.raises(PaymentGatewayError, match="no payment"):
+            await gateway.find_by_order("order-1")
+    finally:
+        await gateway.aclose()
+
+
+async def test_check_order_with_several_payments_raises():
+    gateway = check_order_gateway(
+        [
+            {"PaymentId": 1, "Amount": 15000, "Status": "REJECTED", "Success": True},
+            {"PaymentId": 2, "Amount": 15000, "Status": "NEW", "Success": True},
+        ]
+    )
+    try:
+        with pytest.raises(PaymentGatewayError, match="several payments"):
+            await gateway.find_by_order("order-1")
+    finally:
+        await gateway.aclose()
 
 
 @pytest.mark.asyncio

@@ -17,6 +17,7 @@ ALLOWED = {
     ("expired", "require_reconciliation"): "reconciliation_required",
     ("cancelled", "require_reconciliation"): "reconciliation_required",
     ("reconciliation_required", "request_refund"): "refund_requested",
+    ("reconciliation_required", "resolve_payment"): "paid",
     ("refund_requested", "confirm_refund"): "refunded",
 }
 REPLAYS = {

@@ -15,7 +15,6 @@ def test_test_environment_accepts_dummy_secrets():
         "telegram_token",
         "tbank_terminal_key",
         "tbank_password",
-        "tbank_webhook_secret",
         "ticket_qr_secret",
     ],
 )
@@ -25,12 +24,12 @@ def test_production_requires_each_secret(field):
         telegram_token="fake-token",
         tbank_terminal_key="fake-terminal",
         tbank_password="fake-password",
-        tbank_webhook_secret="fake-webhook",
         ticket_qr_secret="fake-qr-secret",
         personal_consent_text="Approved personal data consent",
         personal_consent_version="legal-v1",
         marketing_consent_text="Approved marketing consent",
         marketing_consent_version="legal-v1",
+        public_base_url="https://club.example",
     )
     values[field] = ""
     with pytest.raises(ValidationError):
@@ -43,14 +42,33 @@ def test_production_accepts_explicit_secrets():
         telegram_token="fake-token",
         tbank_terminal_key="fake-terminal",
         tbank_password="fake-password",
-        tbank_webhook_secret="fake-webhook",
         ticket_qr_secret="fake-qr-secret",
         personal_consent_text="Approved personal data consent",
         personal_consent_version="legal-v1",
         marketing_consent_text="Approved marketing consent",
         marketing_consent_version="legal-v1",
+        public_base_url="https://club.example",
         _env_file=None,
     )
+
+
+@pytest.mark.parametrize("value", ["", "   ", "http://club.example"])
+def test_production_requires_https_public_base_url(value):
+    """Without it Init sends no NotificationURL and the shared terminal notifies someone else."""
+    with pytest.raises(ValidationError, match="public_base_url"):
+        Settings(
+            environment="production",
+            telegram_token="fake-token",
+            tbank_terminal_key="fake-terminal",
+            tbank_password="fake-password",
+            ticket_qr_secret="fake-qr-secret",
+            personal_consent_text="Approved personal data consent",
+            personal_consent_version="legal-v1",
+            marketing_consent_text="Approved marketing consent",
+            marketing_consent_version="legal-v1",
+            public_base_url=value,
+            _env_file=None,
+        )
 
 
 @pytest.mark.parametrize("field", ["telegram_token", "ticket_qr_secret"])
@@ -75,12 +93,12 @@ def test_staging_runs_without_payment_credentials_but_is_hardened():
         telegram_token="t",
         tbank_terminal_key="k",
         tbank_password="p",
-        tbank_webhook_secret="w",
         ticket_qr_secret="q",
         personal_consent_text="Approved",
         personal_consent_version="v1",
         marketing_consent_text="Approved",
         marketing_consent_version="v1",
+        public_base_url="https://club.example",
         _env_file=None,
     ).hardened
 
@@ -117,7 +135,6 @@ def test_repr_does_not_expose_secrets_or_connection_credentials():
         telegram_token="private-token",
         tbank_terminal_key="private-key",
         tbank_password="private-password",
-        tbank_webhook_secret="private-webhook",
         database_url="postgresql+asyncpg://user:private-db@localhost/povod",
         redis_url="redis://:private-redis@localhost:6379/0",
         _env_file=None,
@@ -126,7 +143,6 @@ def test_repr_does_not_expose_secrets_or_connection_credentials():
         "private-token",
         "private-key",
         "private-password",
-        "private-webhook",
         "private-db",
         "private-redis",
     ]:
