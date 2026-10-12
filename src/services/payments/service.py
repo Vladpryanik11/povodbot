@@ -37,22 +37,26 @@ AUTHORIZED_STATUSES = {"AUTHORIZED"}
 FAILED_STATUSES = {"REJECTED", "DEADLINE_EXPIRED", "CANCELED", "REVERSED"}
 REFUNDING_STATUSES = {"REFUNDING", "PARTIAL_REFUNDED"}
 REFUNDED_STATUSES = {"REFUNDED"}
+IN_PROGRESS_STATUSES = {
+    "NEW",
+    "FORM_SHOWED",
+    "3DS_CHECKING",
+    "3DS_CHECKED",
+    "AUTHORIZING",
+    "CONFIRMING",
+}
 KNOWN_STATUSES = (
     CONFIRMED_STATUSES
     | AUTHORIZED_STATUSES
     | FAILED_STATUSES
     | REFUNDING_STATUSES
     | REFUNDED_STATUSES
-    | {
-        "NEW",
-        "FORM_SHOWED",
-        "3DS_CHECKING",
-        "3DS_CHECKED",
-        "AUTHORIZING",
-        "CONFIRMING",
-        "REVERSING",
-    }
+    | IN_PROGRESS_STATUSES
+    | {"REVERSING"}
 )
+# Once the money is taken, the bank may still deliver earlier statuses out of order.
+SETTLED_PROVIDER_STATUSES = CONFIRMED_STATUSES | REFUNDING_STATUSES | REFUNDED_STATUSES
+SETTLED_LOCAL_STATUSES = {PaymentStatus.CONFIRMED, PaymentStatus.REFUNDING, PaymentStatus.REFUNDED}
 PAYMENT_INIT_LEASE = timedelta(seconds=60)
 
 
@@ -546,6 +550,19 @@ class PaymentService:
             received_at=now,
         )
         self.repository.session.add(payment_event)
+        stale_reason = self._stale_reason(payment, normalized)
+        if stale_reason is not None:
+            payment_event.ignored_reason = stale_reason
+            payment_event.applied_at = now
+            await self.repository.save()
+            return PaymentApplicationResult(
+                True,
+                False,
+                payment.id,
+                PaymentStatus(payment.status),
+                await self._order_status(payment.order_id),
+                stale_reason,
+            )
         payment.provider_status = normalized
 
         if event.amount_minor is not None and event.amount_minor != payment.amount_kopecks:
@@ -643,6 +660,20 @@ class PaymentService:
         return PaymentApplicationResult(
             True, False, payment.id, PaymentStatus(payment.status), order_status, reason
         )
+
+    @staticmethod
+    def _stale_reason(payment: Payment, normalized: str) -> str | None:
+        settled = (
+            payment.provider_status in SETTLED_PROVIDER_STATUSES
+            or payment.status in SETTLED_LOCAL_STATUSES
+        )
+        if normalized in AUTHORIZED_STATUSES | IN_PROGRESS_STATUSES and settled:
+            return "stale_status"
+        if normalized in REFUNDING_STATUSES and payment.status == PaymentStatus.REFUNDED:
+            return "stale_status"
+        if normalized not in KNOWN_STATUSES and settled:
+            return "unknown_status"
+        return None
 
     async def _order_status(self, order_id: UUID) -> OrderStatus:
         value = await self.repository.session.scalar(
