@@ -31,6 +31,7 @@ from src.services.payments.dtos import (
     ProviderPaymentStatus,
 )
 from src.services.payments.ports import PaymentGateway, PaymentGatewayError
+from src.services.payments.urls import payment_urls
 
 CONFIRMED_STATUSES = {"CONFIRMED"}
 AUTHORIZED_STATUSES = {"AUTHORIZED"}
@@ -287,10 +288,14 @@ class PaymentService:
             payment.init_lease_until = now + PAYMENT_INIT_LEASE
             await self.repository.save()
 
+        urls = payment_urls(order.id)
         request = CreatePaymentRequest(
             order_id=order.id,
             amount_minor=order.total_kopecks,
             description=f"Повод — заказ {order.id}",
+            notification_url=urls.notification_url,
+            success_url=urls.success_url,
+            fail_url=urls.fail_url,
             redirect_due_date=order.expires_at,
         )
         return PaymentInitIntent(
