@@ -29,6 +29,7 @@ def test_production_requires_each_secret(field):
         personal_consent_version="legal-v1",
         marketing_consent_text="Approved marketing consent",
         marketing_consent_version="legal-v1",
+        public_base_url="https://club.example",
     )
     values[field] = ""
     with pytest.raises(ValidationError):
@@ -46,8 +47,28 @@ def test_production_accepts_explicit_secrets():
         personal_consent_version="legal-v1",
         marketing_consent_text="Approved marketing consent",
         marketing_consent_version="legal-v1",
+        public_base_url="https://club.example",
         _env_file=None,
     )
+
+
+@pytest.mark.parametrize("value", ["", "   ", "http://club.example"])
+def test_production_requires_https_public_base_url(value):
+    """Without it Init sends no NotificationURL and the shared terminal notifies someone else."""
+    with pytest.raises(ValidationError, match="public_base_url"):
+        Settings(
+            environment="production",
+            telegram_token="fake-token",
+            tbank_terminal_key="fake-terminal",
+            tbank_password="fake-password",
+            ticket_qr_secret="fake-qr-secret",
+            personal_consent_text="Approved personal data consent",
+            personal_consent_version="legal-v1",
+            marketing_consent_text="Approved marketing consent",
+            marketing_consent_version="legal-v1",
+            public_base_url=value,
+            _env_file=None,
+        )
 
 
 @pytest.mark.parametrize("field", ["telegram_token", "ticket_qr_secret"])
@@ -77,6 +98,7 @@ def test_staging_runs_without_payment_credentials_but_is_hardened():
         personal_consent_version="v1",
         marketing_consent_text="Approved",
         marketing_consent_version="v1",
+        public_base_url="https://club.example",
         _env_file=None,
     ).hardened
 

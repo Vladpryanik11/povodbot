@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -55,7 +56,7 @@ async def build_ticket_issued(
         return None
     local = event.starts_at.astimezone(ZoneInfo(event.timezone))
     fields = {
-        "title": event.title,
+        "title": html.escape(event.title),  # the sender uses parse_mode="HTML"
         "date": local.strftime("%d.%m.%Y"),
         "time": local.strftime("%H:%M"),
     }

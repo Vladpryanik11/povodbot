@@ -17,7 +17,8 @@ router = APIRouter(prefix="/api/webhooks/tbank", tags=["tbank webhooks"])
 @router.post("/payment-status", response_class=PlainTextResponse)
 async def payment_status(
     request: Request,
-    session: Annotated[AsyncSession, Depends(get_async_session)],
+    # scope="function": commit before the response, so OK always means the payment is stored.
+    session: Annotated[AsyncSession, Depends(get_async_session, scope="function")],
 ) -> PlainTextResponse:
     # T-Bank signs notifications only with the body Token and retries until it gets plain OK.
     settings = get_settings()

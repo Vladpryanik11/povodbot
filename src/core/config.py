@@ -92,6 +92,9 @@ class Settings(BaseSettings):
             ):
                 if not getattr(self, name).get_secret_value().strip():
                     raise ValueError(f"{name} is required in production")
+            # Init's NotificationURL: without it the shared terminal notifies its cabinet address.
+            if not self.public_base_url.strip().startswith("https://"):
+                raise ValueError("public_base_url must be an https address in production")
             for name in (
                 "personal_consent_text",
                 "personal_consent_version",

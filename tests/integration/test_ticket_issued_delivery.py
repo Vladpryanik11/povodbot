@@ -164,3 +164,17 @@ async def test_ticket_issued_gives_up_after_max_attempts(pg_factory):
     await worker.process_pending()
 
     assert (await job(pg_factory, order_id)).processed_at is not None
+
+
+async def test_ticket_issued_message_escapes_event_title_for_html(pg_factory):
+    order_id, event_id = await paid_order(pg_factory)
+    async with pg_factory() as session, session.begin():
+        await session.execute(
+            update(Event).where(Event.id == event_id).values(title="Кино <ночью> & вино")
+        )
+    sender = Sender()
+
+    await TicketIssuedOutboxWorker(pg_factory, sender).process_pending()
+
+    _, message = sender.calls[0]
+    assert "Кино &lt;ночью&gt; &amp; вино" in message.text

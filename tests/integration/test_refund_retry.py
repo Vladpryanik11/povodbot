@@ -220,4 +220,3 @@ async def test_late_payment_can_be_refunded(pg_factory):
     assert PaymentStatus(payment.status) == PaymentStatus.REFUNDED
     assert OrderStatus(order.status) == OrderStatus.REFUNDED
     assert command.processed_at is not None
-

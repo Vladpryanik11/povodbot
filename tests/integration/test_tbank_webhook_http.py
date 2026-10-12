@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 
 from src.api.app import create_app
 from src.core.config import get_settings
@@ -175,3 +175,28 @@ async def test_header_secret_is_not_required(pg_factory, tbank_env):
         response = await client.post(URL, json=signed(order_id))
     assert (response.status_code, response.text) == (200, "OK")
     assert await order_state(pg_factory, order_id) == (OrderStatus.PAID, 1)
+
+
+async def test_failed_commit_is_not_answered_ok(pg_factory, tbank_env):
+    """T-Bank stops retrying after OK, so OK must mean the payment is already stored."""
+    order_id = await started_order(pg_factory)
+    app = create_app()
+
+    async def session_losing_commit():
+        async with pg_factory() as session:
+
+            def lose(_):
+                raise RuntimeError("connection lost at COMMIT")
+
+            event.listen(session.sync_session, "before_commit", lose)
+            async with session.begin():
+                yield session
+
+    app.dependency_overrides[get_async_session] = session_losing_commit
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(URL, json=signed(order_id))
+
+    assert response.status_code == 500
+    assert response.text != "OK"
+    assert await order_state(pg_factory, order_id) == (OrderStatus.PENDING_PAYMENT, 0)
