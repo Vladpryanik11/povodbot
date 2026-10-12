@@ -4,6 +4,7 @@ Source of truth: docs/brand/bot-entry-copy.md.
 """
 
 BTN_OPEN = "Открыть Повод"
+BTN_AFISHA = "Афиша"
 BTN_TICKETS = "Мои билеты"
 BTN_SUPPORT = "Поддержка"
 BTN_MENU = "Меню"

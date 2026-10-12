@@ -86,7 +86,7 @@ async def test_start_asks_for_no_consent_and_greets_first_then_again(pg_factory)
     assert transport.sent[-1].text == (
         "Привет, Анна! Это «Повод».\n\nВсе наши вечера и билеты в приложении, открывается кнопкой."
     )
-    assert callbacks(transport) == ["tickets:mine", "support"]
+    assert callbacks(transport) == ["events:all", "tickets:mine", "support"]
     async with pg_factory() as session:
         assert await session.scalar(select(func.count()).select_from(Consent)) == 0
     await feed_start(pg_factory, bot, "/start latest", "changed")
@@ -133,7 +133,7 @@ async def test_tickets_help_commands_and_unknown_text(pg_factory):
     assert "напиши нам: https://t.me/vladpryanik" in transport.sent[-1].text
     await feed_start(pg_factory, bot, "что вы делаете?")
     assert transport.sent[-1].text.startswith("Мы тут отвечаем только на кнопки.")
-    assert callbacks(transport) == ["tickets:mine", "support"]
+    assert callbacks(transport) == ["events:all", "tickets:mine", "support"]
 
 
 async def test_group_start_does_not_register_profile(pg_factory):

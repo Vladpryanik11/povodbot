@@ -11,6 +11,8 @@ def main_menu(miniapp_url: str = "") -> InlineKeyboardMarkup:
     rows = []
     if miniapp_url:
         rows.append([open_app_button(miniapp_url)])
+    # Buying lives in the chat until the Mini App can take orders.
+    rows.append([InlineKeyboardButton(text=copy.BTN_AFISHA, callback_data="events:all")])
     rows.append(
         [
             InlineKeyboardButton(text=copy.BTN_TICKETS, callback_data="tickets:mine"),
